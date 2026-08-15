@@ -7,6 +7,6 @@ database:
     db_name: flights
 
 http_server:
-    address: :3000
+    address: localhost:3000
     timeout: 5s
     idle_timeout: 60s
