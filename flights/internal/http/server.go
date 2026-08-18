@@ -6,26 +6,32 @@ import (
 	"flights/internal/storage"
 	"log/slog"
 	"net/http"
+
+	"github.com/go-playground/validator/v10"
 )
 
 type Server struct {
-	config  *config.Config
-	router  *http.ServeMux
-	storage *storage.Storage
-	logger  *slog.Logger
-	service *service.FlightService
+	config    *config.Config
+	router    *http.ServeMux
+	storage   storage.Storage
+	logger    *slog.Logger
+	service   *service.FlightService
+	validator *validator.Validate
 }
 
 func CreateServer(cfg *config.Config) *Server {
 	return &Server{
-		config: cfg,
-		router: http.NewServeMux(),
+		config:    cfg,
+		router:    http.NewServeMux(),
+		validator: validator.New(),
 	}
 }
 
 // Start web server. Init data storage and router
 func (s *Server) Start() error {
-	s.logger = config.SetupLogger(s.config.Env)
+	if s.logger == nil {
+		s.logger = config.SetupLogger(s.config.Env)
+	}
 
 	err := s.configureStorage()
 	if err != nil {
@@ -40,7 +46,8 @@ func (s *Server) Start() error {
 }
 
 func (s *Server) configureRouter() {
-	s.router.HandleFunc("GET /flight/{flightNumber}", s.HandleFlight())
+	s.router.HandleFunc("GET /flights/", s.HandleGetFlights())
+	s.router.HandleFunc("POST /flights/", s.HandleCreateFlight())
 
 	s.logger.Info("Router configured")
 }

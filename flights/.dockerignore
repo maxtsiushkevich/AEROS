@@ -1,0 +1,5 @@
+sql
+*.md
+dockerfile
+docker-compose.yaml
+.dockerignore

@@ -1,8 +1,8 @@
 package storage
 
 import (
+	"context"
 	"flights/internal/config"
-	"flights/internal/models"
 	"fmt"
 	"log/slog"
 
@@ -11,20 +11,29 @@ import (
 	"gorm.io/gorm"
 )
 
-type Storage struct {
+type Storage interface {
+	Open() error
+	Close() error
+	Create(flight *Flight) error
+	Read(filter FlightFilter) ([]Flight, error)
+	Update(flight Flight)
+	Delete(id uuid.UUID)
+}
+
+type PostgresStorage struct {
 	config *config.Config
 	logger *slog.Logger
 	db     *gorm.DB
 }
 
-func CreateStorage(cfg *config.Config, l *slog.Logger) *Storage {
-	return &Storage{
+func CreateStorage(cfg *config.Config, l *slog.Logger) Storage {
+	return &PostgresStorage{
 		config: cfg,
 		logger: l,
 	}
 }
 
-func (s *Storage) Open() error {
+func (s *PostgresStorage) Open() error {
 	connString := fmt.Sprintf("postgres://%s:%s@%s/%s",
 		s.config.Database.User,
 		s.config.Database.Password,
@@ -47,19 +56,16 @@ func (s *Storage) Open() error {
 	return nil
 }
 
-func (s *Storage) autoMigrateModels() error {
-	if err := s.db.AutoMigrate(&models.Flight{}); err != nil {
+func (s *PostgresStorage) autoMigrateModels() error {
+	if err := s.db.AutoMigrate(&Flight{}); err != nil {
 		s.logger.Error("Failed to auto-migrate models", "err", err)
 		return err
 	}
 
-	flight := models.Flight{FlightNumber: "B2-2555", Origin: "MSQ", Destination: "DBX", Aircraft: "Boeing 737 Max 7"}
-	s.db.Create(&flight)
-
 	return nil
 }
 
-func (s *Storage) Close() error {
+func (s *PostgresStorage) Close() error {
 	database, err := s.db.DB()
 	if err != nil {
 		return err
@@ -69,32 +75,55 @@ func (s *Storage) Close() error {
 	return nil
 }
 
-func (s *Storage) Create(flight models.Flight) {
-
+func (s *PostgresStorage) Create(flight *Flight) error {
+	err := s.db.WithContext(context.Background()).Create(flight).Error
+	if err != nil {
+		return fmt.Errorf("failed to create flight in db: %w", err)
+	}
+	return nil
 }
 
-func (s *Storage) Read(id uuid.UUID) {
+// Add Order
+func (s *PostgresStorage) Read(filter FlightFilter) ([]Flight, error) {
+	var flights []Flight
+	query := s.db
 
-}
-
-func (s *Storage) ReadByFlightNumber(flightNumber string) (*models.Flight, error) {
-	var flight models.Flight
-
-	result := s.db.Where("flight_number = ?", flightNumber).First(&flight)
-
-	if result.Error != nil {
-		s.logger.Error("Failed to read flight", "flightNumber", flightNumber, "err", result.Error)
-		return nil, result.Error
+	if filter.FlightNumber != "" {
+		query = query.Where("flight_number = ?", filter.FlightNumber)
 	}
 
-	s.logger.Debug("Flight found", "flightNumber", flightNumber)
-	return &flight, nil
+	if filter.Origin != "" {
+		query = query.Where("origin = ?", filter.Origin)
+	}
+
+	if filter.Destination != "" {
+		query = query.Where("destination = ?", filter.Destination)
+	}
+
+	if filter.Status != "" {
+		query = query.Where("status = ?", filter.Status)
+	}
+
+	if filter.DateFrom != nil {
+		query = query.Where("date >= ?", filter.DateFrom)
+	}
+
+	if filter.DateTo != nil {
+		query = query.Where("date <= ?", filter.DateTo)
+	}
+
+	if err := query.Find(&flights).Error; err != nil {
+		s.logger.Error("Failed to read flights", "err", err)
+		return nil, err
+	}
+
+	return flights, nil
 }
 
-func (s *Storage) Update(flight models.Flight) {
+func (s *PostgresStorage) Update(flight Flight) {
 
 }
 
-func (s *Storage) Delete(id uuid.UUID) {
+func (s *PostgresStorage) Delete(id uuid.UUID) {
 
 }

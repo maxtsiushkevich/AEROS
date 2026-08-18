@@ -1,0 +1,14 @@
+FROM golang:alpine
+
+WORKDIR /app
+
+COPY go.mod ./
+RUN go mod download
+
+COPY . .
+
+RUN go build ./cmd/flights/main.go
+
+EXPOSE 3000
+
+CMD ["./main"]

@@ -25,5 +25,4 @@ func main() {
 	if err := server.Start(); err != nil {
 		slog.Error("Server failed", "err", err)
 	}
-
 }
