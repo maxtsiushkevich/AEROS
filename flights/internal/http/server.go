@@ -13,7 +13,7 @@ import (
 type Server struct {
 	config    *config.Config
 	router    *http.ServeMux
-	storage   storage.Storage
+	storage   storage.FlightsStorage
 	logger    *slog.Logger
 	service   *service.FlightService
 	validator *validator.Validate
@@ -47,7 +47,7 @@ func (s *Server) Start() error {
 
 func (s *Server) configureRouter() {
 	s.router.HandleFunc("GET /flights/", s.HandleGetFlights())
-	s.router.HandleFunc("POST /flights/", s.HandleCreateFlight())
+	s.router.HandleFunc("POST /flights", s.HandleCreateFlight())
 
 	s.logger.Info("Router configured")
 }

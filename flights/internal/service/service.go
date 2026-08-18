@@ -1,49 +1,36 @@
 package service
 
 import (
-	"flights/internal/domain"
+	"flights/internal/models"
 	"flights/internal/storage"
 )
 
 type FlightService struct {
-	storage storage.Storage
+	storage storage.FlightsStorage
 }
 
-func CreateFlightService(storage storage.Storage) *FlightService {
+func CreateFlightService(storage storage.FlightsStorage) *FlightService {
 	return &FlightService{
 		storage: storage,
 	}
 }
 
-func (s *FlightService) GetFlights(flightQuery FlightQuery) ([]storage.Flight, error) {
-	filter := storage.FlightFilter{
-		FlightNumber: flightQuery.FlightNumber,
-		Origin:       flightQuery.Origin,
-		Destination:  flightQuery.Destination,
-		Status:       string(flightQuery.Status),
-		DateFrom:     flightQuery.DateFrom,
-		DateTo:       flightQuery.DateTo,
-	}
-
-	flights, err := s.storage.Read(filter)
+func (s *FlightService) GetFlights(query *models.FlightQuery) ([]models.Flight, error) {
+	// Could add filtering rules, business rules checking, etc.
+	flights, err := s.storage.Read(query)
 	if err != nil {
 		return nil, err
 	}
+
 	return flights, nil
 }
 
-func (s *FlightService) CreateFlight(flight *CreateFlightModel) error {
-	err := s.storage.Create(&storage.Flight{
-		FlightNumber: flight.FlightNumber,
-		Origin:       flight.Origin,
-		Destination:  flight.Destination,
-		Date:         flight.Date,
-		Status:       domain.Status(flight.Status),
-		Aircraft:     flight.Aircraft,
-	})
-
+func (s *FlightService) CreateFlight(flight *models.Flight) error {
+	// check if aircraft exists, validate route, etc.
+	err := s.storage.Create(flight)
 	if err != nil {
 		return err
 	}
+
 	return nil
 }

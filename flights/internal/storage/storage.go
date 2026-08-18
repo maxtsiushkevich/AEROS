@@ -3,6 +3,7 @@ package storage
 import (
 	"context"
 	"flights/internal/config"
+	"flights/internal/models"
 	"fmt"
 	"log/slog"
 
@@ -11,29 +12,29 @@ import (
 	"gorm.io/gorm"
 )
 
-type Storage interface {
+type FlightsStorage interface {
 	Open() error
 	Close() error
-	Create(flight *Flight) error
-	Read(filter FlightFilter) ([]Flight, error)
-	Update(flight Flight)
+	Create(flight *models.Flight) error
+	Read(filter *models.FlightQuery) ([]models.Flight, error)
+	Update(flight models.Flight)
 	Delete(id uuid.UUID)
 }
 
-type PostgresStorage struct {
+type FlightsPostgresStorage struct {
 	config *config.Config
 	logger *slog.Logger
 	db     *gorm.DB
 }
 
-func CreateStorage(cfg *config.Config, l *slog.Logger) Storage {
-	return &PostgresStorage{
+func CreateStorage(cfg *config.Config, l *slog.Logger) FlightsStorage {
+	return &FlightsPostgresStorage{
 		config: cfg,
 		logger: l,
 	}
 }
 
-func (s *PostgresStorage) Open() error {
+func (s *FlightsPostgresStorage) Open() error {
 	connString := fmt.Sprintf("postgres://%s:%s@%s/%s",
 		s.config.Database.User,
 		s.config.Database.Password,
@@ -56,8 +57,8 @@ func (s *PostgresStorage) Open() error {
 	return nil
 }
 
-func (s *PostgresStorage) autoMigrateModels() error {
-	if err := s.db.AutoMigrate(&Flight{}); err != nil {
+func (s *FlightsPostgresStorage) autoMigrateModels() error {
+	if err := s.db.AutoMigrate(&models.Flight{}); err != nil {
 		s.logger.Error("Failed to auto-migrate models", "err", err)
 		return err
 	}
@@ -65,7 +66,7 @@ func (s *PostgresStorage) autoMigrateModels() error {
 	return nil
 }
 
-func (s *PostgresStorage) Close() error {
+func (s *FlightsPostgresStorage) Close() error {
 	database, err := s.db.DB()
 	if err != nil {
 		return err
@@ -75,7 +76,7 @@ func (s *PostgresStorage) Close() error {
 	return nil
 }
 
-func (s *PostgresStorage) Create(flight *Flight) error {
+func (s *FlightsPostgresStorage) Create(flight *models.Flight) error {
 	err := s.db.WithContext(context.Background()).Create(flight).Error
 	if err != nil {
 		return fmt.Errorf("failed to create flight in db: %w", err)
@@ -83,10 +84,13 @@ func (s *PostgresStorage) Create(flight *Flight) error {
 	return nil
 }
 
-// Add Order
-func (s *PostgresStorage) Read(filter FlightFilter) ([]Flight, error) {
-	var flights []Flight
+func (s *FlightsPostgresStorage) Read(filter *models.FlightQuery) ([]models.Flight, error) {
+	var flights []models.Flight
 	query := s.db
+
+	if filter == nil {
+		filter = &models.FlightQuery{}
+	}
 
 	if filter.FlightNumber != "" {
 		query = query.Where("flight_number = ?", filter.FlightNumber)
@@ -120,10 +124,10 @@ func (s *PostgresStorage) Read(filter FlightFilter) ([]Flight, error) {
 	return flights, nil
 }
 
-func (s *PostgresStorage) Update(flight Flight) {
+func (s *FlightsPostgresStorage) Update(flight models.Flight) {
 
 }
 
-func (s *PostgresStorage) Delete(id uuid.UUID) {
+func (s *FlightsPostgresStorage) Delete(id uuid.UUID) {
 
 }
