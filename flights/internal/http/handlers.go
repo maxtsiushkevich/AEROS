@@ -2,6 +2,7 @@ package http
 
 import (
 	"encoding/json"
+	"io"
 	"net/http"
 )
 
@@ -16,7 +17,8 @@ func (s *Server) HandleGetFlights() http.HandlerFunc {
 			return
 		}
 
-		// There is normalazing data
+		// Normalazing data
+		request.Normalize()
 
 		// Validate
 		if err := s.validator.Struct(request); err != nil {
@@ -54,7 +56,8 @@ func (s *Server) HandleCreateFlight() http.HandlerFunc {
 			return
 		}
 
-		// There is normalazing data
+		// Normalazing data
+		request.Normalize()
 
 		// Validate
 		if err := s.validator.Struct(request); err != nil {
@@ -78,5 +81,53 @@ func (s *Server) HandleCreateFlight() http.HandlerFunc {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusCreated)
 		json.NewEncoder(w).Encode(map[string]string{"message": "Flight created successfully"})
+	}
+}
+
+func (s *Server) HandlePatchFlight() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		body, err := io.ReadAll(r.Body)
+		if err != nil {
+			http.Error(w, "failed to read request body", http.StatusInternalServerError)
+			return
+		}
+		defer r.Body.Close()
+
+		// Unmarshall JSON
+		request := &PatchFlightRequest{}
+		if err := json.Unmarshal(body, request); err != nil {
+			w.Header().Set("Content-Type", "application/json")
+			http.Error(w, "invalid JSON body", http.StatusBadRequest)
+			return
+		}
+
+		request.Normalize()
+
+		// Validate
+		if err := s.validator.Struct(request); err != nil {
+			w.Header().Set("Content-Type", "application/json")
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+
+		flight := request.ToFlightUpdate()
+
+		updatedFlight, err := s.service.UpdateFlight(flight)
+
+		// Add custrom error handling for not found case
+		if err != nil {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusInternalServerError)
+			s.logger.Error("Error while update flight", "err", err)
+			json.NewEncoder(w).Encode(map[string]string{"error": "Failed to update flight"})
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		response := UpdatedFlightResponse{
+			Data: FlightToResponse(updatedFlight),
+		}
+		json.NewEncoder(w).Encode(response)
 	}
 }

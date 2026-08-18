@@ -2,6 +2,7 @@ package http
 
 import (
 	"flights/internal/config"
+	"flights/internal/middleware"
 	"flights/internal/service"
 	"flights/internal/storage"
 	"log/slog"
@@ -46,8 +47,14 @@ func (s *Server) Start() error {
 }
 
 func (s *Server) configureRouter() {
-	s.router.HandleFunc("GET /flights/", s.HandleGetFlights())
-	s.router.HandleFunc("POST /flights", s.HandleCreateFlight())
+
+	mw := middleware.MiddlewareGroup{
+		middleware.LoggingMiddleware(s.logger),
+	}
+
+	s.router.HandleFunc("GET /flights/", mw.Apply(s.HandleGetFlights()))
+	s.router.HandleFunc("POST /flights", mw.Apply(s.HandleCreateFlight()))
+	s.router.HandleFunc("PATCH /flights", mw.Apply(s.HandlePatchFlight()))
 
 	s.logger.Info("Router configured")
 }

@@ -36,3 +36,13 @@ type Flight struct {
 	Status       Status    `gorm:"type:status_enum;default:'Scheduled'"`
 	Aircraft     string    `gorm:"not null"`
 }
+
+type FlightUpdate struct {
+	ID           uuid.UUID
+	FlightNumber *string
+	Origin       *string
+	Destination  *string
+	Date         *time.Time
+	Status       *Status
+	Aircraft     *string
+}

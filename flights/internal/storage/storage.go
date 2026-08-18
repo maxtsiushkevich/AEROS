@@ -17,7 +17,7 @@ type FlightsStorage interface {
 	Close() error
 	Create(flight *models.Flight) error
 	Read(filter *models.FlightQuery) ([]models.Flight, error)
-	Update(flight models.Flight)
+	Update(flight *models.Flight) (*models.Flight, error)
 	Delete(id uuid.UUID)
 }
 
@@ -124,8 +124,8 @@ func (s *FlightsPostgresStorage) Read(filter *models.FlightQuery) ([]models.Flig
 	return flights, nil
 }
 
-func (s *FlightsPostgresStorage) Update(flight models.Flight) {
-
+func (s *FlightsPostgresStorage) Update(flight *models.Flight) (*models.Flight, error) {
+	return &models.Flight{}, nil
 }
 
 func (s *FlightsPostgresStorage) Delete(id uuid.UUID) {

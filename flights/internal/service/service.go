@@ -34,3 +34,7 @@ func (s *FlightService) CreateFlight(flight *models.Flight) error {
 
 	return nil
 }
+
+func (s *FlightService) UpdateFlight(flight *models.FlightUpdate) (*models.Flight, error) {
+	return &models.Flight{}, nil
+}
