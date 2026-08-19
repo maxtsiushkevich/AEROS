@@ -2,6 +2,7 @@ package storage
 
 import (
 	"context"
+	"errors"
 	"flights/internal/config"
 	"flights/internal/models"
 	"fmt"
@@ -17,7 +18,7 @@ type FlightsStorage interface {
 	Close() error
 	Create(ctx context.Context, flight *models.Flight) error
 	Read(ctx context.Context, filter *models.FlightQuery) ([]models.Flight, error)
-	Update(ctx context.Context, flight *models.Flight) (*models.Flight, error)
+	Update(ctx context.Context, flight *models.FlightUpdate) (*models.Flight, error)
 	Delete(ctx context.Context, id uuid.UUID)
 }
 
@@ -124,8 +125,43 @@ func (s *FlightsPostgresStorage) Read(ctx context.Context, filter *models.Flight
 	return flights, nil
 }
 
-func (s *FlightsPostgresStorage) Update(ctx context.Context, flight *models.Flight) (*models.Flight, error) {
-	return &models.Flight{}, nil
+func (s *FlightsPostgresStorage) Update(ctx context.Context, flight *models.FlightUpdate) (*models.Flight, error) {
+	if flight == nil {
+		return nil, errors.New("flight update data is nil")
+	}
+
+	var existing models.Flight
+	if err := s.db.WithContext(ctx).First(&existing, "id = ?", flight.ID).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, fmt.Errorf("flight with id %s not found", flight.ID)
+		}
+		return nil, fmt.Errorf("failed to fetch flight for update: %w", err)
+	}
+
+	if flight.FlightNumber != nil {
+		existing.FlightNumber = *flight.FlightNumber
+	}
+	if flight.Origin != nil {
+		existing.Origin = *flight.Origin
+	}
+	if flight.Destination != nil {
+		existing.Destination = *flight.Destination
+	}
+	if flight.Date != nil {
+		existing.Date = *flight.Date
+	}
+	if flight.Status != nil {
+		existing.Status = *flight.Status
+	}
+	if flight.Aircraft != nil {
+		existing.Aircraft = *flight.Aircraft
+	}
+
+	if err := s.db.WithContext(ctx).Save(&existing).Error; err != nil {
+		return nil, fmt.Errorf("failed to update flight in db: %w", err)
+	}
+
+	return &existing, nil
 }
 
 func (s *FlightsPostgresStorage) Delete(ctx context.Context, id uuid.UUID) {

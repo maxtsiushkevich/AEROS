@@ -37,5 +37,9 @@ func (s *FlightService) CreateFlight(ctx context.Context, flight *models.Flight)
 }
 
 func (s *FlightService) UpdateFlight(ctx context.Context, flight *models.FlightUpdate) (*models.Flight, error) {
-	return &models.Flight{}, nil
+	updatedFlight, err := s.storage.Update(ctx, flight)
+	if err != nil {
+		return nil, err
+	}
+	return updatedFlight, nil
 }
