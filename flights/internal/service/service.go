@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"flights/internal/models"
 	"flights/internal/storage"
 )
@@ -15,9 +16,9 @@ func CreateFlightService(storage storage.FlightsStorage) *FlightService {
 	}
 }
 
-func (s *FlightService) GetFlights(query *models.FlightQuery) ([]models.Flight, error) {
+func (s *FlightService) GetFlights(ctx context.Context, query *models.FlightQuery) ([]models.Flight, error) {
 	// Could add filtering rules, business rules checking, etc.
-	flights, err := s.storage.Read(query)
+	flights, err := s.storage.Read(ctx, query)
 	if err != nil {
 		return nil, err
 	}
@@ -25,9 +26,9 @@ func (s *FlightService) GetFlights(query *models.FlightQuery) ([]models.Flight, 
 	return flights, nil
 }
 
-func (s *FlightService) CreateFlight(flight *models.Flight) error {
+func (s *FlightService) CreateFlight(ctx context.Context, flight *models.Flight) error {
 	// check if aircraft exists, validate route, etc.
-	err := s.storage.Create(flight)
+	err := s.storage.Create(ctx, flight)
 	if err != nil {
 		return err
 	}
@@ -35,6 +36,6 @@ func (s *FlightService) CreateFlight(flight *models.Flight) error {
 	return nil
 }
 
-func (s *FlightService) UpdateFlight(flight *models.FlightUpdate) (*models.Flight, error) {
+func (s *FlightService) UpdateFlight(ctx context.Context, flight *models.FlightUpdate) (*models.Flight, error) {
 	return &models.Flight{}, nil
 }

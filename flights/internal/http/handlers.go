@@ -9,6 +9,7 @@ import (
 // Hhandler for getting flights
 func (s *Server) HandleGetFlights() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		ctx := r.Context()
 		// Parse request
 		request, err := ParseGetFlightsQuery(r.URL.Query())
 		if err != nil {
@@ -28,7 +29,7 @@ func (s *Server) HandleGetFlights() http.HandlerFunc {
 		}
 
 		// Call service
-		flights, err := s.service.GetFlights(request.ToServiceQuery())
+		flights, err := s.service.GetFlights(ctx, request.ToServiceQuery())
 		if err != nil {
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusNotFound)
@@ -48,6 +49,7 @@ func (s *Server) HandleGetFlights() http.HandlerFunc {
 // Handler for creating flight
 func (s *Server) HandleCreateFlight() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		ctx := r.Context()
 		// Parse request body
 		request := &CreateFlightRequest{}
 		if err := json.NewDecoder(r.Body).Decode(request); err != nil {
@@ -69,7 +71,7 @@ func (s *Server) HandleCreateFlight() http.HandlerFunc {
 		// Convert DTO to domain model
 		flight := request.ToServiceFlight()
 
-		err := s.service.CreateFlight(flight)
+		err := s.service.CreateFlight(ctx, flight)
 		if err != nil {
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusInternalServerError)
@@ -86,6 +88,7 @@ func (s *Server) HandleCreateFlight() http.HandlerFunc {
 
 func (s *Server) HandlePatchFlight() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		ctx := r.Context()
 		body, err := io.ReadAll(r.Body)
 		if err != nil {
 			http.Error(w, "failed to read request body", http.StatusInternalServerError)
@@ -112,7 +115,7 @@ func (s *Server) HandlePatchFlight() http.HandlerFunc {
 
 		flight := request.ToFlightUpdate()
 
-		updatedFlight, err := s.service.UpdateFlight(flight)
+		updatedFlight, err := s.service.UpdateFlight(ctx, flight)
 
 		// Add custrom error handling for not found case
 		if err != nil {

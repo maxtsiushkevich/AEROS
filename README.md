@@ -1,2 +1,28 @@
-**AEROS** - Airline Enterprise Resource Operations System
+# **AEROS** - Airline Enterprise Resource Operations System
+
+## Flights Service
+**Flights Service** — это микросервис для управления авиарейсами в системе AEROS. Сервис предоставляет API для создания, чтения, обновления рейсов и отслеживания их статуса.
+
+### Основные возможности:
+- Управление информацией о рейсах
+- Отслеживание статуса рейсов (Scheduled, CheckIn, Boarding, Departed, Arrived, и т.д.)
+- Поиск по номеру рейса, маршруту, дате
+- Интеграция с PostgreSQL через GORM
+- Структурированное логирование (slog)
+- REST API на базе net/http
+
 ---
+
+### Backend stack
+| Компонент | Версия | Назначение |
+|-----------|--------|-----------|
+| **Go** | 1.25 | Язык программирования |
+| **net/http** | std | HTTP маршрутизация и обработчики |
+| **GORM** | v1.31.2 | ORM для работы с БД |
+| **PostgreSQL** | 16 | Основная база данных |
+| **slog** | std | Структурированное логирование |
+| **go-playground/validation** | 10.30.3 | Валидация данных |
+
+### Дополнительно
+- `google/uuid` — генерация UUID
+- `pgx` — PostgreSQL драйвер

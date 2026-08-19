@@ -52,9 +52,9 @@ func (s *Server) configureRouter() {
 		middleware.LoggingMiddleware(s.logger),
 	}
 
-	s.router.HandleFunc("GET /flights/", mw.Apply(s.HandleGetFlights()))
-	s.router.HandleFunc("POST /flights", mw.Apply(s.HandleCreateFlight()))
-	s.router.HandleFunc("PATCH /flights", mw.Apply(s.HandlePatchFlight()))
+	s.router.HandleFunc("GET /api/v1/flights/", mw.Apply(s.HandleGetFlights()))
+	s.router.HandleFunc("POST /api/v1/flights", mw.Apply(s.HandleCreateFlight()))
+	s.router.HandleFunc("PATCH /api/v1/flights", mw.Apply(s.HandlePatchFlight()))
 
 	s.logger.Info("Router configured")
 }

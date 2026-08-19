@@ -15,10 +15,10 @@ import (
 type FlightsStorage interface {
 	Open() error
 	Close() error
-	Create(flight *models.Flight) error
-	Read(filter *models.FlightQuery) ([]models.Flight, error)
-	Update(flight *models.Flight) (*models.Flight, error)
-	Delete(id uuid.UUID)
+	Create(ctx context.Context, flight *models.Flight) error
+	Read(ctx context.Context, filter *models.FlightQuery) ([]models.Flight, error)
+	Update(ctx context.Context, flight *models.Flight) (*models.Flight, error)
+	Delete(ctx context.Context, id uuid.UUID)
 }
 
 type FlightsPostgresStorage struct {
@@ -76,17 +76,17 @@ func (s *FlightsPostgresStorage) Close() error {
 	return nil
 }
 
-func (s *FlightsPostgresStorage) Create(flight *models.Flight) error {
-	err := s.db.WithContext(context.Background()).Create(flight).Error
+func (s *FlightsPostgresStorage) Create(ctx context.Context, flight *models.Flight) error {
+	err := s.db.WithContext(ctx).Create(flight).Error
 	if err != nil {
 		return fmt.Errorf("failed to create flight in db: %w", err)
 	}
 	return nil
 }
 
-func (s *FlightsPostgresStorage) Read(filter *models.FlightQuery) ([]models.Flight, error) {
+func (s *FlightsPostgresStorage) Read(ctx context.Context, filter *models.FlightQuery) ([]models.Flight, error) {
 	var flights []models.Flight
-	query := s.db
+	query := s.db.WithContext(ctx)
 
 	if filter == nil {
 		filter = &models.FlightQuery{}
@@ -124,10 +124,10 @@ func (s *FlightsPostgresStorage) Read(filter *models.FlightQuery) ([]models.Flig
 	return flights, nil
 }
 
-func (s *FlightsPostgresStorage) Update(flight *models.Flight) (*models.Flight, error) {
+func (s *FlightsPostgresStorage) Update(ctx context.Context, flight *models.Flight) (*models.Flight, error) {
 	return &models.Flight{}, nil
 }
 
-func (s *FlightsPostgresStorage) Delete(id uuid.UUID) {
+func (s *FlightsPostgresStorage) Delete(ctx context.Context, id uuid.UUID) {
 
 }
