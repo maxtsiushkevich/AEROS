@@ -26,14 +26,14 @@ func (s *FlightService) GetFlights(ctx context.Context, query *models.FlightQuer
 	return flights, nil
 }
 
-func (s *FlightService) CreateFlight(ctx context.Context, flight *models.Flight) error {
+func (s *FlightService) CreateFlight(ctx context.Context, flight *models.Flight) (*models.Flight, error) {
 	// check if aircraft exists, validate route, etc.
-	err := s.storage.Create(ctx, flight)
+	created, err := s.storage.Create(ctx, flight)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	return nil
+	return created, nil
 }
 
 func (s *FlightService) UpdateFlight(ctx context.Context, flight *models.FlightUpdate) (*models.Flight, error) {

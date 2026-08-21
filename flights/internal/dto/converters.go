@@ -1,6 +1,8 @@
-package http
+package dto
 
-import "flights/internal/models"
+import (
+	"flights/internal/models"
+)
 
 func (r *CreateFlightRequest) ToServiceFlight() *models.Flight {
 	return &models.Flight{

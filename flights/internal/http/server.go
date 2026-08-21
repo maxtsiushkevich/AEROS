@@ -2,9 +2,9 @@ package http
 
 import (
 	"flights/internal/config"
-	"flights/internal/middleware"
-	"flights/internal/service"
+	"flights/internal/handlers"
 	"flights/internal/storage"
+	"flights/pkg/middleware"
 	"log/slog"
 	"net/http"
 
@@ -14,10 +14,10 @@ import (
 type Server struct {
 	config    *config.Config
 	router    *http.ServeMux
-	storage   storage.FlightsStorage
 	logger    *slog.Logger
-	service   *service.FlightService
 	validator *validator.Validate
+
+	flights *handlers.FlightHandler
 }
 
 func CreateServer(cfg *config.Config) *Server {
@@ -34,12 +34,16 @@ func (s *Server) Start() error {
 		s.logger = config.SetupLogger(s.config.Env)
 	}
 
-	err := s.configureStorage()
+	var err error
+	s.flights, err = handlers.NewFlightHandler(
+		storage.CreateStorage(s.config, s.logger), s.validator)
+
 	if err != nil {
+		s.logger.Error("Connection to DB failed", "err", err)
 		return err
 	}
+
 	s.configureRouter()
-	s.configureService()
 
 	s.logger.Info("Start server", "env", s.config.Env)
 	s.logger.Debug("Serve on", "addr", "http://"+s.config.HTTPServer.Address)
@@ -52,24 +56,20 @@ func (s *Server) configureRouter() {
 		middleware.LoggingMiddleware(s.logger),
 	}
 
-	s.router.HandleFunc("GET /api/v1/flights/", mw.Apply(s.HandleGetFlights()))
-	s.router.HandleFunc("POST /api/v1/flights", mw.Apply(s.HandleCreateFlight()))
-	s.router.HandleFunc("PATCH /api/v1/flights", mw.Apply(s.HandlePatchFlight()))
+	s.router.HandleFunc("GET /api/v1/flights/", mw.Apply(s.flights.HandleGetFlights()))
+	s.router.HandleFunc("POST /api/v1/flights", mw.Apply(s.flights.HandleCreateFlight()))
+	s.router.HandleFunc("PATCH /api/v1/flights", mw.Apply(s.flights.HandlePatchFlight()))
 
 	s.logger.Info("Router configured")
 }
 
-func (s *Server) configureStorage() error {
-	s.storage = storage.CreateStorage(s.config, s.logger)
-	if err := s.storage.Open(); err != nil {
-		s.logger.Error("Connection to DB failed", "err", err)
-		return err
-	}
+// func (s *Server) configureStorage() error {
+// 	s.storage = storage.CreateStorage(s.config, s.logger)
+// 	if err := s.storage.Open(); err != nil {
+// 		s.logger.Error("Connection to DB failed", "err", err)
+// 		return err
+// 	}
 
-	s.logger.Info("Init db", "env", s.config.Env)
-	return nil
-}
-
-func (s *Server) configureService() {
-	s.service = service.CreateFlightService(s.storage)
-}
+// 	s.logger.Info("Init db", "env", s.config.Env)
+// 	return nil
+// }

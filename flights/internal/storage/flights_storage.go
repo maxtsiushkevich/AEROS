@@ -7,6 +7,7 @@ import (
 	"flights/internal/models"
 	"fmt"
 	"log/slog"
+	"time"
 
 	"github.com/google/uuid"
 	"gorm.io/driver/postgres"
@@ -16,7 +17,7 @@ import (
 type FlightsStorage interface {
 	Open() error
 	Close() error
-	Create(ctx context.Context, flight *models.Flight) error
+	Create(ctx context.Context, flight *models.Flight) (*models.Flight, error)
 	Read(ctx context.Context, filter *models.FlightQuery) ([]models.Flight, error)
 	Update(ctx context.Context, flight *models.FlightUpdate) (*models.Flight, error)
 	Delete(ctx context.Context, id uuid.UUID)
@@ -50,6 +51,13 @@ func (s *FlightsPostgresStorage) Open() error {
 		return err
 	}
 
+	pool, _ := s.db.DB()
+
+	pool.SetMaxOpenConns(5)
+	pool.SetMaxIdleConns(5)
+	pool.SetConnMaxLifetime(30 * time.Second)
+	pool.SetConnMaxIdleTime(15 * time.Second)
+
 	if err := s.autoMigrateModels(); err != nil {
 		return err
 	}
@@ -77,12 +85,12 @@ func (s *FlightsPostgresStorage) Close() error {
 	return nil
 }
 
-func (s *FlightsPostgresStorage) Create(ctx context.Context, flight *models.Flight) error {
+func (s *FlightsPostgresStorage) Create(ctx context.Context, flight *models.Flight) (*models.Flight, error) {
 	err := s.db.WithContext(ctx).Create(flight).Error
 	if err != nil {
-		return fmt.Errorf("failed to create flight in db: %w", err)
+		return nil, fmt.Errorf("failed to create flight in db: %w", err)
 	}
-	return nil
+	return flight, nil
 }
 
 func (s *FlightsPostgresStorage) Read(ctx context.Context, filter *models.FlightQuery) ([]models.Flight, error) {

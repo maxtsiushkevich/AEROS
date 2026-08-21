@@ -1,12 +1,13 @@
-package http
+package utils
 
 import (
+	"flights/internal/dto"
 	"net/url"
 	"time"
 )
 
 // ParseGetFlightsQuery converts URL query parameters to GetFlightsRequestQuery
-func ParseGetFlightsQuery(queryParams url.Values) (*GetFlightsRequestQuery, error) {
+func ParseGetFlightsQuery(queryParams url.Values) (*dto.GetFlightsRequestQuery, error) {
 	dateFrom, err := parseDate(queryParams.Get("date_from"))
 	if err != nil {
 		return nil, err
@@ -17,7 +18,7 @@ func ParseGetFlightsQuery(queryParams url.Values) (*GetFlightsRequestQuery, erro
 		return nil, err
 	}
 
-	return &GetFlightsRequestQuery{
+	return &dto.GetFlightsRequestQuery{
 		FlightNumber: queryParams.Get("flight_number"),
 		Origin:       queryParams.Get("origin"),
 		Destination:  queryParams.Get("destination"),

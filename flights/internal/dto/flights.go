@@ -1,4 +1,4 @@
-package http
+package dto
 
 import (
 	"time"
@@ -42,12 +42,4 @@ type FlightResponse struct {
 	Date         time.Time `json:"date"`
 	Status       string    `json:"status"`
 	Aircraft     string    `json:"aircraft"`
-}
-
-type FlightListResponse struct {
-	Data []FlightResponse `json:"data"`
-}
-
-type UpdatedFlightResponse struct {
-	Data FlightResponse `json:"data"`
 }
