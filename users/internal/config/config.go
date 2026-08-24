@@ -19,6 +19,7 @@ type Config struct {
 	Env        Env              `yaml:"env"`
 	Database   DbConfig         `yaml:"database"`
 	HTTPServer HTTPServerConfig `yaml:"http_server"`
+	AuthServer AuthServerConfig `yaml:"auth_server"`
 }
 
 type DbConfig struct {
@@ -32,6 +33,10 @@ type HTTPServerConfig struct {
 	Address     string        `yaml:"address"`
 	Timeout     time.Duration `yaml:"timeout"`
 	IdleTimeout time.Duration `yaml:"idle_timeout"`
+}
+
+type AuthServerConfig struct {
+	Address string `yaml:"address"`
 }
 
 func Load(filePath string) (Config, error) {

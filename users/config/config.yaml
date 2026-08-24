@@ -10,3 +10,6 @@ http_server:
     address: localhost:3000
     timeout: 5s
     idle_timeout: 60s
+
+auth_server:
+    address: localhost:50051
