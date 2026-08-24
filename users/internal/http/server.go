@@ -30,6 +30,8 @@ func NewServer(cfg *config.Config) *Server {
 
 func (s *Server) ConfigServer() {
 	authServerAddr := s.config.AuthServer.Address
+
+	// should use secure connection
 	conn, err := grpc.NewClient(authServerAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		log.Fatalf("Error creating gRPC client: %v", err)
@@ -54,8 +56,8 @@ func (s *Server) configRoutes() {
 		client := auth.NewAuthClient(s.grpcConn)
 
 		resp, err := client.AddUser(context.Background(), &auth.AddUserRequest{
-			Id:             "1234",
-			HashedPassword: "34mf9304mf3940fj43jf34iksdz",
+			Id:       "1234",
+			Password: "34mf9304mf3940fj43jf34iksdz",
 		})
 
 		if err != nil {

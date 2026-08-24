@@ -10,7 +10,7 @@ service Auth {
 
 message AddUserRequest {
   string id = 1;
-  string hashed_password = 2;
+  string password = 2;
 }
 
 message AddUserResponse {

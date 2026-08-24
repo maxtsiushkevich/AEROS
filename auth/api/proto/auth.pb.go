@@ -2,7 +2,7 @@
 // versions:
 // 	protoc-gen-go v1.36.12
 // 	protoc        v7.35.1
-// source: proto/auth.proto
+// source: api/proto/auth.proto
 
 package auth
 
@@ -22,16 +22,16 @@ const (
 )
 
 type AddUserRequest struct {
-	state          protoimpl.MessageState `protogen:"open.v1"`
-	Id             string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
-	HashedPassword string                 `protobuf:"bytes,2,opt,name=hashed_password,json=hashedPassword,proto3" json:"hashed_password,omitempty"`
-	unknownFields  protoimpl.UnknownFields
-	sizeCache      protoimpl.SizeCache
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	Password      string                 `protobuf:"bytes,2,opt,name=password,proto3" json:"password,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *AddUserRequest) Reset() {
 	*x = AddUserRequest{}
-	mi := &file_proto_auth_proto_msgTypes[0]
+	mi := &file_api_proto_auth_proto_msgTypes[0]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -43,7 +43,7 @@ func (x *AddUserRequest) String() string {
 func (*AddUserRequest) ProtoMessage() {}
 
 func (x *AddUserRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_auth_proto_msgTypes[0]
+	mi := &file_api_proto_auth_proto_msgTypes[0]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -56,7 +56,7 @@ func (x *AddUserRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AddUserRequest.ProtoReflect.Descriptor instead.
 func (*AddUserRequest) Descriptor() ([]byte, []int) {
-	return file_proto_auth_proto_rawDescGZIP(), []int{0}
+	return file_api_proto_auth_proto_rawDescGZIP(), []int{0}
 }
 
 func (x *AddUserRequest) GetId() string {
@@ -66,9 +66,9 @@ func (x *AddUserRequest) GetId() string {
 	return ""
 }
 
-func (x *AddUserRequest) GetHashedPassword() string {
+func (x *AddUserRequest) GetPassword() string {
 	if x != nil {
-		return x.HashedPassword
+		return x.Password
 	}
 	return ""
 }
@@ -83,7 +83,7 @@ type AddUserResponse struct {
 
 func (x *AddUserResponse) Reset() {
 	*x = AddUserResponse{}
-	mi := &file_proto_auth_proto_msgTypes[1]
+	mi := &file_api_proto_auth_proto_msgTypes[1]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -95,7 +95,7 @@ func (x *AddUserResponse) String() string {
 func (*AddUserResponse) ProtoMessage() {}
 
 func (x *AddUserResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_auth_proto_msgTypes[1]
+	mi := &file_api_proto_auth_proto_msgTypes[1]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -108,7 +108,7 @@ func (x *AddUserResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AddUserResponse.ProtoReflect.Descriptor instead.
 func (*AddUserResponse) Descriptor() ([]byte, []int) {
-	return file_proto_auth_proto_rawDescGZIP(), []int{1}
+	return file_api_proto_auth_proto_rawDescGZIP(), []int{1}
 }
 
 func (x *AddUserResponse) GetAccessToken() string {
@@ -125,14 +125,14 @@ func (x *AddUserResponse) GetRefreshToken() string {
 	return ""
 }
 
-var File_proto_auth_proto protoreflect.FileDescriptor
+var File_api_proto_auth_proto protoreflect.FileDescriptor
 
-const file_proto_auth_proto_rawDesc = "" +
+const file_api_proto_auth_proto_rawDesc = "" +
 	"\n" +
-	"\x10proto/auth.proto\x12\x04auth\"I\n" +
+	"\x14api/proto/auth.proto\x12\x04auth\"<\n" +
 	"\x0eAddUserRequest\x12\x0e\n" +
-	"\x02id\x18\x01 \x01(\tR\x02id\x12'\n" +
-	"\x0fhashed_password\x18\x02 \x01(\tR\x0ehashedPassword\"Y\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1a\n" +
+	"\bpassword\x18\x02 \x01(\tR\bpassword\"Y\n" +
 	"\x0fAddUserResponse\x12!\n" +
 	"\faccess_token\x18\x01 \x01(\tR\vaccessToken\x12#\n" +
 	"\rrefresh_token\x18\x02 \x01(\tR\frefreshToken2>\n" +
@@ -140,23 +140,23 @@ const file_proto_auth_proto_rawDesc = "" +
 	"\aAddUser\x12\x14.auth.AddUserRequest\x1a\x15.auth.AddUserResponseB\bZ\x06./authb\x06proto3"
 
 var (
-	file_proto_auth_proto_rawDescOnce sync.Once
-	file_proto_auth_proto_rawDescData []byte
+	file_api_proto_auth_proto_rawDescOnce sync.Once
+	file_api_proto_auth_proto_rawDescData []byte
 )
 
-func file_proto_auth_proto_rawDescGZIP() []byte {
-	file_proto_auth_proto_rawDescOnce.Do(func() {
-		file_proto_auth_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_proto_auth_proto_rawDesc), len(file_proto_auth_proto_rawDesc)))
+func file_api_proto_auth_proto_rawDescGZIP() []byte {
+	file_api_proto_auth_proto_rawDescOnce.Do(func() {
+		file_api_proto_auth_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_api_proto_auth_proto_rawDesc), len(file_api_proto_auth_proto_rawDesc)))
 	})
-	return file_proto_auth_proto_rawDescData
+	return file_api_proto_auth_proto_rawDescData
 }
 
-var file_proto_auth_proto_msgTypes = make([]protoimpl.MessageInfo, 2)
-var file_proto_auth_proto_goTypes = []any{
+var file_api_proto_auth_proto_msgTypes = make([]protoimpl.MessageInfo, 2)
+var file_api_proto_auth_proto_goTypes = []any{
 	(*AddUserRequest)(nil),  // 0: auth.AddUserRequest
 	(*AddUserResponse)(nil), // 1: auth.AddUserResponse
 }
-var file_proto_auth_proto_depIdxs = []int32{
+var file_api_proto_auth_proto_depIdxs = []int32{
 	0, // 0: auth.Auth.AddUser:input_type -> auth.AddUserRequest
 	1, // 1: auth.Auth.AddUser:output_type -> auth.AddUserResponse
 	1, // [1:2] is the sub-list for method output_type
@@ -166,26 +166,26 @@ var file_proto_auth_proto_depIdxs = []int32{
 	0, // [0:0] is the sub-list for field type_name
 }
 
-func init() { file_proto_auth_proto_init() }
-func file_proto_auth_proto_init() {
-	if File_proto_auth_proto != nil {
+func init() { file_api_proto_auth_proto_init() }
+func file_api_proto_auth_proto_init() {
+	if File_api_proto_auth_proto != nil {
 		return
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
-			RawDescriptor: unsafe.Slice(unsafe.StringData(file_proto_auth_proto_rawDesc), len(file_proto_auth_proto_rawDesc)),
+			RawDescriptor: unsafe.Slice(unsafe.StringData(file_api_proto_auth_proto_rawDesc), len(file_api_proto_auth_proto_rawDesc)),
 			NumEnums:      0,
 			NumMessages:   2,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
-		GoTypes:           file_proto_auth_proto_goTypes,
-		DependencyIndexes: file_proto_auth_proto_depIdxs,
-		MessageInfos:      file_proto_auth_proto_msgTypes,
+		GoTypes:           file_api_proto_auth_proto_goTypes,
+		DependencyIndexes: file_api_proto_auth_proto_depIdxs,
+		MessageInfos:      file_api_proto_auth_proto_msgTypes,
 	}.Build()
-	File_proto_auth_proto = out.File
-	file_proto_auth_proto_goTypes = nil
-	file_proto_auth_proto_depIdxs = nil
+	File_api_proto_auth_proto = out.File
+	file_api_proto_auth_proto_goTypes = nil
+	file_api_proto_auth_proto_depIdxs = nil
 }
