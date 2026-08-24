@@ -3,6 +3,7 @@ package http
 import (
 	"auth/internal/config"
 	"auth/internal/handlers"
+	"auth/internal/storage"
 	"auth/pkg/middleware"
 	"log/slog"
 	"net/http"
@@ -34,7 +35,7 @@ func (s *Server) Start() error {
 	}
 
 	var err error
-	s.auth, err = handlers.NewAuthHandler()
+	s.auth, err = handlers.NewAuthHandler(storage.CreateStorage(s.config, s.logger))
 
 	if err != nil {
 		s.logger.Error("Connection to DB failed", "err", err)

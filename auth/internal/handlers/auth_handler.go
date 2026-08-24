@@ -1,12 +1,21 @@
 package handlers
 
-import "net/http"
+import (
+	"auth/internal/service"
+	"auth/internal/storage"
+	"net/http"
+)
 
 type AuthHandler struct {
+	storage storage.AuthStorage
+	service *service.AuthService
 }
 
-func NewAuthHandler() (*AuthHandler, error) {
-	return nil, nil
+func NewAuthHandler(storage storage.AuthStorage) (*AuthHandler, error) {
+	return &AuthHandler{
+		storage: storage,
+		service: service.CreateAuthService(storage),
+	}, nil
 }
 
 func (h *AuthHandler) HandleCreateToken() http.HandlerFunc {

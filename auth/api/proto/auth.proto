@@ -1,0 +1,19 @@
+syntax = "proto3";
+
+package auth;
+
+option go_package = "./auth";
+
+service Auth {
+  rpc AddUser(AddUserRequest) returns (AddUserResponse);
+}
+
+message AddUserRequest {
+  string id = 1;
+  string hashed_password = 2;
+}
+
+message AddUserResponse {
+  string access_token = 1;
+  string refresh_token = 2;
+}

@@ -10,3 +10,6 @@ http_server:
     address: localhost:3001
     timeout: 5s
     idle_timeout: 60s
+
+grpc_server:
+    address: localhost:50051
