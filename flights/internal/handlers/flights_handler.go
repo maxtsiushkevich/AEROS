@@ -2,16 +2,19 @@ package handlers
 
 import (
 	"encoding/json"
+	"errors"
 	"flights/internal/dto"
 	"flights/internal/service"
 	"flights/internal/storage"
 	"flights/internal/utils"
 	"flights/pkg/httperr"
 	"flights/pkg/httpresp"
+	"fmt"
 	"io"
 	"net/http"
 
 	"github.com/go-playground/validator/v10"
+	"github.com/google/uuid"
 )
 
 type FlightHandler struct {
@@ -35,7 +38,7 @@ func NewFlightHandler(
 	}, nil
 }
 
-// Hhandler for getting flights
+// Handler for getting flights
 func (h *FlightHandler) HandleGetFlights() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		ctx := r.Context()
@@ -138,12 +141,30 @@ func (h *FlightHandler) HandlePatchFlight() http.HandlerFunc {
 
 		data := dto.FlightToResponse(updatedFlight)
 		httpresp.OK(w, data)
+	}
+}
 
-		// w.Header().Set("Content-Type", "application/json")
-		// w.WriteHeader(http.StatusOK)
-		// response := dto.UpdatedFlightResponse{
-		// 	Data: dto.FlightToResponse(updatedFlight),
-		// }
-		// json.NewEncoder(w).Encode(response)
+func (h *FlightHandler) HandleDeleteFlight() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		ctx := r.Context()
+
+		id, err := uuid.Parse(r.URL.Query().Get("id"))
+		if err != nil {
+			httperr.Write(w, http.StatusBadRequest, "Failed to parse query param `id`. Should be UUID")
+			return
+		}
+
+		err = h.service.DeleteFlight(ctx, id)
+		if err != nil {
+			if errors.Is(err, storage.ErrFlightNotFound) {
+				httperr.Write(w, http.StatusNotFound, fmt.Sprintf("Flight with id=%s not found", id))
+				return
+			}
+
+			httperr.Write(w, http.StatusInternalServerError, "Failed to delete flight")
+			return
+		}
+
+		w.WriteHeader(http.StatusNoContent)
 	}
 }

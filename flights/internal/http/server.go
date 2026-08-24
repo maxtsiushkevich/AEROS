@@ -56,20 +56,10 @@ func (s *Server) configureRouter() {
 		middleware.LoggingMiddleware(s.logger),
 	}
 
-	s.router.HandleFunc("GET /api/v1/flights/", mw.Apply(s.flights.HandleGetFlights()))
+	s.router.HandleFunc("GET /api/v1/flights", mw.Apply(s.flights.HandleGetFlights()))
 	s.router.HandleFunc("POST /api/v1/flights", mw.Apply(s.flights.HandleCreateFlight()))
 	s.router.HandleFunc("PATCH /api/v1/flights", mw.Apply(s.flights.HandlePatchFlight()))
+	s.router.HandleFunc("DELETE /api/v1/flights", mw.Apply(s.flights.HandleDeleteFlight()))
 
 	s.logger.Info("Router configured")
 }
-
-// func (s *Server) configureStorage() error {
-// 	s.storage = storage.CreateStorage(s.config, s.logger)
-// 	if err := s.storage.Open(); err != nil {
-// 		s.logger.Error("Connection to DB failed", "err", err)
-// 		return err
-// 	}
-
-// 	s.logger.Info("Init db", "env", s.config.Env)
-// 	return nil
-// }

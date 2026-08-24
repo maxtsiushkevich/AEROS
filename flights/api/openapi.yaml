@@ -1,0 +1,313 @@
+openapi: 3.0.3
+info:
+  title: Flights API
+  version: 1.0.0
+  description: HTTP API for searching, creating, updating, and deleting flights.
+servers:
+  - url: http://localhost:3000
+    description: Local server
+tags:
+  - name: Flights
+    description: Flight management operations
+paths:
+  /api/v1/flights:
+    get:
+      tags:
+        - Flights
+      summary: Search flights
+      operationId: getFlights
+      parameters:
+        - $ref: '#/components/parameters/FlightNumberQuery'
+        - $ref: '#/components/parameters/OriginQuery'
+        - $ref: '#/components/parameters/DestinationQuery'
+        - name: status
+          in: query
+          description: Exact status filter.
+          schema:
+            $ref: '#/components/schemas/FlightStatus'
+        - name: date_from
+          in: query
+          description: Inclusive lower bound for the flight date. Must be RFC3339.
+          schema:
+            type: string
+            format: date-time
+        - name: date_to
+          in: query
+          description: Inclusive upper bound for the flight date. Must be RFC3339.
+          schema:
+            type: string
+            format: date-time
+      responses:
+        '200':
+          description: Flights returned successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FlightListResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          description: Flights could not be retrieved.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    post:
+      tags:
+        - Flights
+      summary: Create a flight
+      operationId: createFlight
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateFlightRequest'
+      responses:
+        '201':
+          description: Flight created successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FlightResponseEnvelope'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '500':
+          description: Flight could not be created.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    patch:
+      tags:
+        - Flights
+      summary: Update a flight
+      operationId: updateFlight
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchFlightRequest'
+      responses:
+        '200':
+          description: Flight updated successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FlightResponseEnvelope'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '500':
+          description: Flight could not be updated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    delete:
+      tags:
+        - Flights
+      summary: Delete a flight
+      operationId: deleteFlight
+      parameters:
+        - name: id
+          in: query
+          description: UUID of the flight to delete.
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Flight deleted successfully.
+        '400':
+          description: The id query parameter is missing or is not a UUID.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Flight was not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Flight could not be deleted.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+components:
+  parameters:
+    FlightNumberQuery:
+      name: flight_number
+      in: query
+      description: Exact flight number filter. Whitespace is trimmed and letters are uppercased.
+      schema:
+        type: string
+        maxLength: 8
+    OriginQuery:
+      name: origin
+      in: query
+      description: Three-letter IATA origin airport code filter.
+      schema:
+        type: string
+        maxLength: 3
+        pattern: '^[A-Za-z]{3}$'
+    DestinationQuery:
+      name: destination
+      in: query
+      description: Three-letter IATA destination airport code filter.
+      schema:
+        type: string
+        maxLength: 3
+        pattern: '^[A-Za-z]{3}$'
+
+  schemas:
+    FlightStatus:
+      type: string
+      enum:
+        - Scheduled
+        - CheckIn
+        - Boarding
+        - Delayed
+        - Departed
+        - Arrived
+        - Cancelled
+        - Redirected
+
+    Flight:
+      type: object
+      required:
+        - id
+        - flight_number
+        - origin
+        - destination
+        - date
+        - status
+        - aircraft
+      properties:
+        id:
+          type: string
+          format: uuid
+        flight_number:
+          type: string
+          maxLength: 8
+        origin:
+          type: string
+          minLength: 3
+          maxLength: 3
+          pattern: '^[A-Za-z]{3}$'
+        destination:
+          type: string
+          minLength: 3
+          maxLength: 3
+          pattern: '^[A-Za-z]{3}$'
+        date:
+          type: string
+          format: date-time
+        status:
+          $ref: '#/components/schemas/FlightStatus'
+        aircraft:
+          type: string
+
+    CreateFlightRequest:
+      type: object
+      required:
+        - flight_number
+        - origin
+        - destination
+        - date
+        - aircraft
+      properties:
+        flight_number:
+          type: string
+          maxLength: 8
+        origin:
+          type: string
+          minLength: 3
+          maxLength: 3
+          pattern: '^[A-Za-z]{3}$'
+        destination:
+          type: string
+          minLength: 3
+          maxLength: 3
+          pattern: '^[A-Za-z]{3}$'
+        date:
+          type: string
+          format: date-time
+          description: RFC3339 timestamp strictly later than the current server time.
+        status:
+          allOf:
+            - $ref: '#/components/schemas/FlightStatus'
+          default: Scheduled
+        aircraft:
+          type: string
+
+    PatchFlightRequest:
+      type: object
+      required:
+        - id
+      properties:
+        id:
+          type: string
+          format: uuid
+        flight_number:
+          type: string
+          maxLength: 8
+        origin:
+          type: string
+          minLength: 3
+          maxLength: 3
+          pattern: '^[A-Za-z]{3}$'
+        destination:
+          type: string
+          minLength: 3
+          maxLength: 3
+          pattern: '^[A-Za-z]{3}$'
+        date:
+          type: string
+          format: date-time
+        status:
+          type: string
+          description: Flight status. The current handler accepts any string on update.
+        aircraft:
+          type: string
+
+    FlightResponseEnvelope:
+      type: object
+      required:
+        - data
+      properties:
+        data:
+          $ref: '#/components/schemas/Flight'
+
+    FlightListResponse:
+      type: object
+      required:
+        - data
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Flight'
+
+    ErrorResponse:
+      type: object
+      required:
+        - error
+      properties:
+        error:
+          type: string
+
+  responses:
+    BadRequest:
+      description: Invalid JSON, date, UUID, or request field.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'

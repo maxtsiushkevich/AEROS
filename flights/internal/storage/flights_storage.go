@@ -20,8 +20,10 @@ type FlightsStorage interface {
 	Create(ctx context.Context, flight *models.Flight) (*models.Flight, error)
 	Read(ctx context.Context, filter *models.FlightQuery) ([]models.Flight, error)
 	Update(ctx context.Context, flight *models.FlightUpdate) (*models.Flight, error)
-	Delete(ctx context.Context, id uuid.UUID)
+	Delete(ctx context.Context, id uuid.UUID) error
 }
+
+var ErrFlightNotFound = errors.New("flight not found")
 
 type FlightsPostgresStorage struct {
 	config *config.Config
@@ -172,6 +174,14 @@ func (s *FlightsPostgresStorage) Update(ctx context.Context, flight *models.Flig
 	return &existing, nil
 }
 
-func (s *FlightsPostgresStorage) Delete(ctx context.Context, id uuid.UUID) {
+func (s *FlightsPostgresStorage) Delete(ctx context.Context, id uuid.UUID) error {
+	result := s.db.WithContext(ctx).Where("id = ?", id).Delete(&models.Flight{})
+	if result.Error != nil {
+		return fmt.Errorf("failed to delete flight in db: %w", result.Error)
+	}
+	if result.RowsAffected == 0 {
+		return fmt.Errorf("flight with id %s: %w", id, ErrFlightNotFound)
+	}
 
+	return nil
 }

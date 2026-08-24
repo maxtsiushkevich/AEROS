@@ -4,6 +4,8 @@ import (
 	"context"
 	"flights/internal/models"
 	"flights/internal/storage"
+
+	"github.com/google/uuid"
 )
 
 type FlightService struct {
@@ -42,4 +44,12 @@ func (s *FlightService) UpdateFlight(ctx context.Context, flight *models.FlightU
 		return nil, err
 	}
 	return updatedFlight, nil
+}
+
+func (s *FlightService) DeleteFlight(ctx context.Context, id uuid.UUID) error {
+	err := s.storage.Delete(ctx, id)
+	if err != nil {
+		return err
+	}
+	return nil
 }
