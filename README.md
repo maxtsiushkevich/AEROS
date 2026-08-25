@@ -27,6 +27,7 @@ Flight management service. It supports the creation, search, modification, and d
 | **google/uuid** | 1.6.0 | UUID identifiers |
 | **log/slog** | Standard library | Structured logging |
 | **YAML** | yaml.v3 3.0.1 | Configuration |
+
 The REST API is available at `/api/v1/flights`:
 
 | Method | Purpose |
