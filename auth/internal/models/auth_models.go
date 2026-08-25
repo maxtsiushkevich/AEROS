@@ -2,8 +2,9 @@ package models
 
 import "github.com/google/uuid"
 
-type User struct {
+type UserAuthData struct {
 	ID             uuid.UUID `gorm:"type:uuid;primaryKey"`
-	HashedPassword string
-	Version        uint32 `gorm:"default:1"`
+	Email          string    `gorm:"unique;not null"`
+	HashedPassword string    `gorm:"not null"`
+	Version        uint32    `gorm:"default:1"`
 }

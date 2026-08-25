@@ -67,7 +67,7 @@ func (s *AuthGRPCServer) AddUser(ctx context.Context, req *auth.AddUserRequest) 
 
 	fmt.Println(string(hashedPassword))
 
-	_, err = s.storage.Create(ctx, &models.User{
+	_, err = s.storage.Create(ctx, &models.UserAuthData{
 		ID:             id,
 		HashedPassword: string(hashedPassword),
 	})

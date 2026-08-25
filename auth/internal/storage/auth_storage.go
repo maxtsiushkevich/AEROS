@@ -13,9 +13,9 @@ import (
 type AuthStorage interface {
 	Open() error
 	Close() error
-	Create(ctx context.Context, user *models.User) (*models.User, error)
-	Read(ctx context.Context, id uuid.UUID) (*models.User, error)
-	Update(ctx context.Context, user *models.User) (*models.User, error)
+	Create(ctx context.Context, user *models.UserAuthData) (*models.UserAuthData, error)
+	Read(ctx context.Context, id uuid.UUID) (*models.UserAuthData, error)
+	Update(ctx context.Context, user *models.UserAuthData) (*models.UserAuthData, error)
 	Delete(ctx context.Context, id uuid.UUID)
 }
 
@@ -40,15 +40,15 @@ func (s *AuthPostgresStorage) Close() error {
 	return nil
 }
 
-func (s *AuthPostgresStorage) Create(ctx context.Context, user *models.User) (*models.User, error) {
+func (s *AuthPostgresStorage) Create(ctx context.Context, user *models.UserAuthData) (*models.UserAuthData, error) {
 	return nil, nil
 }
 
-func (s *AuthPostgresStorage) Read(ctx context.Context, id uuid.UUID) (*models.User, error) {
+func (s *AuthPostgresStorage) Read(ctx context.Context, id uuid.UUID) (*models.UserAuthData, error) {
 	return nil, nil
 }
 
-func (s *AuthPostgresStorage) Update(ctx context.Context, user *models.User) (*models.User, error) {
+func (s *AuthPostgresStorage) Update(ctx context.Context, user *models.UserAuthData) (*models.UserAuthData, error) {
 	return nil, nil
 }
 

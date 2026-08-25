@@ -4,11 +4,11 @@ import (
 	"flights/internal/config"
 	"flights/internal/handlers"
 	"flights/internal/storage"
-	"flights/pkg/middleware"
 	"log/slog"
 	"net/http"
 
 	"github.com/go-playground/validator/v10"
+	"github.com/maxtsiushkevich/AEROS/pkg/middleware"
 )
 
 type Server struct {

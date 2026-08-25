@@ -7,11 +7,12 @@ import (
 	"flights/internal/service"
 	"flights/internal/storage"
 	"flights/internal/utils"
-	"flights/pkg/httperr"
-	"flights/pkg/httpresp"
 	"fmt"
 	"io"
 	"net/http"
+
+	"github.com/maxtsiushkevich/AEROS/pkg/httperr"
+	"github.com/maxtsiushkevich/AEROS/pkg/httpresp"
 
 	"github.com/go-playground/validator/v10"
 	"github.com/google/uuid"
