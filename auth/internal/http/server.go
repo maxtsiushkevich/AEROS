@@ -4,11 +4,11 @@ import (
 	"auth/internal/config"
 	"auth/internal/handlers"
 	"auth/internal/storage"
-	"auth/pkg/middleware"
 	"log/slog"
 	"net/http"
 
 	"github.com/go-playground/validator/v10"
+	"github.com/maxtsiushkevich/AEROS/pkg/middleware"
 )
 
 type Server struct {
