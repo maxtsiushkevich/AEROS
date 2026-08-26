@@ -21,9 +21,10 @@ type Claims struct {
 	jwt.RegisteredClaims
 }
 
-func GenerateAccessToken(id uuid.UUID, version uint32) (string, error) {
+func GenerateAccessToken(id uuid.UUID, email string, version uint32) (string, error) {
 	claims := &Claims{
 		Id:      id,
+		Email:   email,
 		Version: version,
 		Type:    "access",
 		RegisteredClaims: jwt.RegisteredClaims{
@@ -33,9 +34,10 @@ func GenerateAccessToken(id uuid.UUID, version uint32) (string, error) {
 	return jwt.NewWithClaims(jwt.SigningMethodHS256, claims).SignedString(jwtAccessKey)
 }
 
-func GenerateRefreshToken(id uuid.UUID, version uint32) (string, error) {
+func GenerateRefreshToken(id uuid.UUID, email string, version uint32) (string, error) {
 	claims := &Claims{
 		Id:      id,
+		Email:   email,
 		Version: version,
 		Type:    "refresh",
 		RegisteredClaims: jwt.RegisteredClaims{

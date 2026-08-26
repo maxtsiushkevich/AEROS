@@ -4,7 +4,7 @@ database:
     db_address: localhost:5432
     db_user: user
     db_pass: 123
-    db_name: flights
+    db_name: auth
 
 http_server:
     address: localhost:3001

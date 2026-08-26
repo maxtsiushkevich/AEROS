@@ -8,3 +8,13 @@ type UserAuthData struct {
 	HashedPassword string    `gorm:"not null"`
 	Version        uint32    `gorm:"default:1"`
 }
+
+func (UserAuthData) TableName() string {
+	return "auth"
+}
+
+type UserAuthDataUpdate struct {
+	ID                uuid.UUID
+	NewEmail          *string
+	NewHashedPassword *string
+}

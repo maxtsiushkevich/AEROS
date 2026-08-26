@@ -7,8 +7,8 @@ import (
 )
 
 type AuthService struct {
-	storage storage.AuthStorage
-	cache   cache.Cache
+	storage            storage.AuthStorage
+	revokedTokensCache cache.Cache
 }
 
 func CreateAuthService(storage storage.AuthStorage) *AuthService {

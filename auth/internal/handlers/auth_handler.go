@@ -1,8 +1,10 @@
 package handlers
 
 import (
+	"auth/internal/errors"
 	"auth/internal/service"
 	"auth/internal/storage"
+	"log/slog"
 	"net/http"
 
 	"github.com/go-playground/validator/v10"
@@ -12,13 +14,20 @@ type AuthHandler struct {
 	storage   storage.AuthStorage
 	service   *service.AuthService
 	validator *validator.Validate
+	logger    *slog.Logger
 }
 
-func NewAuthHandler(storage storage.AuthStorage) (*AuthHandler, error) {
+func NewAuthHandler(storage storage.AuthStorage, logger *slog.Logger) (*AuthHandler, error) {
+	if err := storage.Open(); err != nil {
+		logger.Error("Failed to open storage", "err", err)
+		return nil, errors.NewAuthError("STORAGE_INIT_FAILED", "failed to initialize storage")
+	}
+
 	return &AuthHandler{
 		storage:   storage,
 		service:   service.CreateAuthService(storage),
 		validator: validator.New(),
+		logger:    logger,
 	}, nil
 }
 

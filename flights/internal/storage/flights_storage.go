@@ -23,7 +23,7 @@ type FlightsStorage interface {
 	Delete(ctx context.Context, id uuid.UUID) error
 }
 
-var ErrFlightNotFound = errors.New("flight not found")
+var ErrFlightNotFound = errors.New("Flight not found")
 
 type FlightsPostgresStorage struct {
 	config *config.Config
@@ -59,11 +59,6 @@ func (s *FlightsPostgresStorage) Open() error {
 	pool.SetMaxIdleConns(5)
 	pool.SetConnMaxLifetime(30 * time.Second)
 	pool.SetConnMaxIdleTime(15 * time.Second)
-
-	if err := s.autoMigrateModels(); err != nil {
-		return err
-	}
-	s.logger.Debug("Init schemas")
 
 	return nil
 }

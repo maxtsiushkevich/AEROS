@@ -2,11 +2,17 @@ package storage
 
 import (
 	"auth/internal/config"
+	"auth/internal/errors"
 	"auth/internal/models"
 	"context"
+	errors_pkg "errors"
+	"fmt"
 	"log/slog"
+	"strings"
+	"time"
 
 	"github.com/google/uuid"
+	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )
 
@@ -14,9 +20,9 @@ type AuthStorage interface {
 	Open() error
 	Close() error
 	Create(ctx context.Context, user *models.UserAuthData) (*models.UserAuthData, error)
-	Read(ctx context.Context, id uuid.UUID) (*models.UserAuthData, error)
-	Update(ctx context.Context, user *models.UserAuthData) (*models.UserAuthData, error)
-	Delete(ctx context.Context, id uuid.UUID)
+	Read(ctx context.Context, email *string) (*models.UserAuthData, error)
+	Update(ctx context.Context, user *models.UserAuthDataUpdate) (*models.UserAuthData, error)
+	Delete(ctx context.Context, id uuid.UUID) error
 }
 
 type AuthPostgresStorage struct {
@@ -33,25 +39,106 @@ func CreateStorage(cfg *config.Config, l *slog.Logger) AuthStorage {
 }
 
 func (s *AuthPostgresStorage) Open() error {
+	connString := fmt.Sprintf("postgres://%s:%s@%s/%s",
+		s.config.Database.User,
+		s.config.Database.Password,
+		s.config.Database.Address,
+		s.config.Database.DbName)
+
+	var err error
+
+	s.db, err = gorm.Open(postgres.Open(connString), &gorm.Config{})
+	s.logger.Debug("Open db connect", "connString", connString)
+	if err != nil {
+		return err
+	}
+
+	pool, _ := s.db.DB()
+
+	pool.SetMaxOpenConns(5)
+	pool.SetMaxIdleConns(5)
+	pool.SetConnMaxLifetime(30 * time.Second)
+	pool.SetConnMaxIdleTime(15 * time.Second)
+
 	return nil
 }
 
 func (s *AuthPostgresStorage) Close() error {
+	database, err := s.db.DB()
+	if err != nil {
+		return err
+	}
+	database.Close()
+	s.logger.Info("Database connection closed", "err", err)
 	return nil
 }
 
 func (s *AuthPostgresStorage) Create(ctx context.Context, user *models.UserAuthData) (*models.UserAuthData, error) {
-	return nil, nil
+	err := s.db.WithContext(ctx).Create(user).Error
+	if err != nil {
+		errMsg := err.Error()
+		if strings.Contains(errMsg, "duplicate key") || strings.Contains(errMsg, "UNIQUE constraint") {
+			s.logger.Warn("User already exists", "id", user.ID, "email", user.Email)
+			return nil, errors.NewUserAlreadyExistsError(user.Email)
+		}
+		s.logger.Error("Failed to create user", "email", user.Email, "err", err)
+		return nil, errors.NewAuthError("CREATE_FAILED", "failed to create user")
+	}
+
+	return user, nil
 }
 
-func (s *AuthPostgresStorage) Read(ctx context.Context, id uuid.UUID) (*models.UserAuthData, error) {
-	return nil, nil
+func (s *AuthPostgresStorage) Read(ctx context.Context, email *string) (*models.UserAuthData, error) {
+	var authData models.UserAuthData
+	err := s.db.WithContext(ctx).Where("email = ?", email).First(&authData).Error
+
+	if err != nil {
+		if errors_pkg.Is(err, gorm.ErrRecordNotFound) {
+			s.logger.Warn("User not found", "email", email)
+			return nil, errors.NewUserNotFoundError(*email)
+		}
+		s.logger.Error("Failed to read user", "email", email, "err", err)
+		return nil, errors.NewAuthError("READ_FAILED", "failed to read user")
+	}
+
+	return &authData, nil
 }
 
-func (s *AuthPostgresStorage) Update(ctx context.Context, user *models.UserAuthData) (*models.UserAuthData, error) {
-	return nil, nil
+func (s *AuthPostgresStorage) Update(ctx context.Context, update *models.UserAuthDataUpdate) (*models.UserAuthData, error) {
+	var existing models.UserAuthData
+
+	err := s.db.WithContext(ctx).Where("id = ?", update.ID).First(&existing).Error
+	if err != nil {
+		if errors_pkg.Is(err, gorm.ErrRecordNotFound) {
+			s.logger.Warn("User not found for update", "id", update.ID)
+			return nil, errors.NewAuthError("USER_NOT_FOUND", fmt.Sprintf("auth data with id %s not found", update.ID))
+		}
+		s.logger.Error("Failed to fetch user for update", "id", update.ID, "err", err)
+		return nil, errors.NewAuthError("UPDATE_FAILED", "failed to fetch user for update")
+	}
+
+	if update.NewEmail != nil {
+		existing.Email = *update.NewEmail
+	}
+	if update.NewHashedPassword != nil {
+		existing.HashedPassword = *update.NewHashedPassword
+	}
+
+	existing.Version++
+
+	if err := s.db.WithContext(ctx).Save(&existing).Error; err != nil {
+		s.logger.Error("Failed to update user", "id", update.ID, "err", err)
+		return nil, errors.NewAuthError("SAVE_FAILED", "failed to save updated user")
+	}
+
+	return &existing, nil
 }
 
-func (s *AuthPostgresStorage) Delete(ctx context.Context, id uuid.UUID) {
-
+func (s *AuthPostgresStorage) Delete(ctx context.Context, id uuid.UUID) error {
+	err := s.db.WithContext(ctx).Where("id = ?", id).Delete(&models.UserAuthData{}).Error
+	if err != nil {
+		s.logger.Error("Failed to delete user", "id", id, "err", err)
+		return errors.NewAuthError("DELETE_FAILED", "failed to delete user")
+	}
+	return nil
 }

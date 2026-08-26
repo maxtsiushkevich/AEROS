@@ -35,10 +35,10 @@ func (s *Server) Start() error {
 	}
 
 	var err error
-	s.auth, err = handlers.NewAuthHandler(storage.CreateStorage(s.config, s.logger))
+	s.auth, err = handlers.NewAuthHandler(storage.CreateStorage(s.config, s.logger), s.logger)
 
 	if err != nil {
-		s.logger.Error("Connection to DB failed", "err", err)
+		s.logger.Error("Failed to initialize auth handler", "err", err)
 		return err
 	}
 
