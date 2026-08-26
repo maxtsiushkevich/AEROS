@@ -9,8 +9,8 @@ import (
 )
 
 var (
-	jwtAccessKey  = []byte(os.Getenv("JWT_SECRET"))
-	jwtRefreshKey = []byte(os.Getenv("JWT_REFRESH_SECRET"))
+	JwtAccessKey  = []byte(os.Getenv("JWT_SECRET"))
+	JwtRefreshKey = []byte(os.Getenv("JWT_REFRESH_SECRET"))
 )
 
 type Claims struct {
@@ -21,28 +21,28 @@ type Claims struct {
 	jwt.RegisteredClaims
 }
 
-func GenerateAccessToken(id uuid.UUID, email string, version uint32) (string, error) {
+func GenerateAccessToken(id *uuid.UUID, email *string, version *uint32) (string, error) {
 	claims := &Claims{
-		Id:      id,
-		Email:   email,
-		Version: version,
+		Id:      *id,
+		Email:   *email,
+		Version: *version,
 		Type:    "access",
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(15 * time.Minute)),
 		},
 	}
-	return jwt.NewWithClaims(jwt.SigningMethodHS256, claims).SignedString(jwtAccessKey)
+	return jwt.NewWithClaims(jwt.SigningMethodHS256, claims).SignedString(JwtAccessKey)
 }
 
-func GenerateRefreshToken(id uuid.UUID, email string, version uint32) (string, error) {
+func GenerateRefreshToken(id *uuid.UUID, email *string, version *uint32) (string, error) {
 	claims := &Claims{
-		Id:      id,
-		Email:   email,
-		Version: version,
+		Id:      *id,
+		Email:   *email,
+		Version: *version,
 		Type:    "refresh",
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(7 * 24 * time.Hour)),
 		},
 	}
-	return jwt.NewWithClaims(jwt.SigningMethodHS256, claims).SignedString(jwtRefreshKey)
+	return jwt.NewWithClaims(jwt.SigningMethodHS256, claims).SignedString(JwtRefreshKey)
 }

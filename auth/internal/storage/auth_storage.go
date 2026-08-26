@@ -79,7 +79,7 @@ func (s *AuthPostgresStorage) Create(ctx context.Context, user *models.UserAuthD
 		errMsg := err.Error()
 		if strings.Contains(errMsg, "duplicate key") || strings.Contains(errMsg, "UNIQUE constraint") {
 			s.logger.Warn("User already exists", "id", user.ID, "email", user.Email)
-			return nil, errors.NewUserAlreadyExistsError(user.Email)
+			return nil, errors.UserAlreadyExistsError(user.Email)
 		}
 		s.logger.Error("Failed to create user", "email", user.Email, "err", err)
 		return nil, errors.NewAuthError("CREATE_FAILED", "failed to create user")
@@ -95,7 +95,7 @@ func (s *AuthPostgresStorage) Read(ctx context.Context, email *string) (*models.
 	if err != nil {
 		if errors_pkg.Is(err, gorm.ErrRecordNotFound) {
 			s.logger.Warn("User not found", "email", email)
-			return nil, errors.NewUserNotFoundError(*email)
+			return nil, errors.UserNotFoundError(*email)
 		}
 		s.logger.Error("Failed to read user", "email", email, "err", err)
 		return nil, errors.NewAuthError("READ_FAILED", "failed to read user")

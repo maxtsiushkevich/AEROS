@@ -1,20 +1,23 @@
 package handlers
 
 import (
+	"auth/internal/dto"
 	"auth/internal/errors"
 	"auth/internal/service"
 	"auth/internal/storage"
+	"encoding/json"
 	"log/slog"
 	"net/http"
 
 	"github.com/go-playground/validator/v10"
+	"github.com/maxtsiushkevich/AEROS/pkg/httperr"
 )
 
 type AuthHandler struct {
-	storage   storage.AuthStorage
-	service   *service.AuthService
-	validator *validator.Validate
-	logger    *slog.Logger
+	storage  storage.AuthStorage
+	service  *service.AuthService
+	validate *validator.Validate
+	logger   *slog.Logger
 }
 
 func NewAuthHandler(storage storage.AuthStorage, logger *slog.Logger) (*AuthHandler, error) {
@@ -24,10 +27,10 @@ func NewAuthHandler(storage storage.AuthStorage, logger *slog.Logger) (*AuthHand
 	}
 
 	return &AuthHandler{
-		storage:   storage,
-		service:   service.CreateAuthService(storage),
-		validator: validator.New(),
-		logger:    logger,
+		storage:  storage,
+		service:  service.CreateAuthService(storage),
+		validate: validator.New(),
+		logger:   logger,
 	}, nil
 }
 
@@ -39,12 +42,50 @@ func (h *AuthHandler) HandleRefreshTokens() http.HandlerFunc {
 
 func (h *AuthHandler) HandleLogin() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusOK)
+		ctx := r.Context()
+		var authRequest dto.AuthRequest
+
+		if err := json.NewDecoder(r.Body).Decode(&authRequest); err != nil {
+			httperr.Write(w, http.StatusBadRequest, "Invalid JSON body")
+			return
+		}
+
+		authRequest.Normalize()
+
+		err := h.validate.Struct(authRequest)
+		if err != nil {
+			httperr.Write(w, http.StatusBadRequest, err.Error())
+			return
+		}
+
+		access, refresh, err := h.service.Login(ctx, &authRequest.Email, &authRequest.Password)
+		if err != nil {
+			httperr.Write(w, http.StatusUnauthorized, err.Error())
+			return
+		}
+
+		http.SetCookie(w, &http.Cookie{
+			Name:     "refresh_token",
+			Value:    *refresh,
+			Path:     "/",
+			HttpOnly: true,
+			Secure:   true,
+			SameSite: http.SameSiteStrictMode,
+		})
+
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]string{"access_token": *access})
 	}
 }
 func (h *AuthHandler) HandleLogout() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		http.SetCookie(w, &http.Cookie{
+			Name: "refresh_token", Value: "", Path: "/",
+			HttpOnly: true, MaxAge: -1, SameSite: http.SameSiteStrictMode,
+		})
 		w.WriteHeader(http.StatusOK)
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]string{"message": "Logout complete"})
 	}
 }
 

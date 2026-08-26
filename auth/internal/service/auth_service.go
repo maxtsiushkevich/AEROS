@@ -1,9 +1,12 @@
 package service
 
 import (
+	"auth/internal/auth"
+	"auth/internal/cache"
+	"auth/internal/errors"
 	"auth/internal/storage"
 
-	"auth/internal/cache"
+	"context"
 )
 
 type AuthService struct {
@@ -17,14 +20,37 @@ func CreateAuthService(storage storage.AuthStorage) *AuthService {
 	}
 }
 
-func (s *AuthService) Login(email *string, password *string) (access string, refresh string, err error) {
-	return "", "", nil
+func (s *AuthService) Login(ctx context.Context, email *string, password *string) (access *string, refresh *string, err error) {
+	user, err := s.storage.Read(ctx, email)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	isValidPassword := auth.CheckPassword(*password, user.HashedPassword)
+	if !isValidPassword {
+		return nil, nil, errors.InvalidPasswordError("incorrect password")
+	}
+
+	accessToken, err := auth.GenerateAccessToken(&user.ID, &user.Email, &user.Version)
+	if err != nil {
+		return nil, nil, errors.CreateTokenError("failed to create access token")
+	}
+
+	refreshToken, err := auth.GenerateRefreshToken(&user.ID, &user.Email, &user.Version)
+	if err != nil {
+		return nil, nil, errors.CreateTokenError("failed to create refresh token")
+	}
+
+	access = &accessToken
+	refresh = &refreshToken
+
+	return access, refresh, nil
 }
 
-func (s *AuthService) Logout(access string, refresh string) {
+func (s *AuthService) Logout(ctx context.Context, access string, refresh string) {
 	// Add tokens to blacklist (Redis or Memcached)
 }
 
-func (s *AuthService) Refresh(oldRefreshToken string) (access string, refresh string, err error) {
+func (s *AuthService) Refresh(ctx context.Context, oldRefreshToken string) (access string, refresh string, err error) {
 	return "", "", nil
 }

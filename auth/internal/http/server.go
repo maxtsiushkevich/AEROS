@@ -3,6 +3,7 @@ package http
 import (
 	"auth/internal/config"
 	"auth/internal/handlers"
+	mdlwr "auth/internal/middleware"
 	"auth/internal/storage"
 	"log/slog"
 	"net/http"
@@ -53,6 +54,7 @@ func (s *Server) configureRouter() {
 
 	mw := middleware.MiddlewareGroup{
 		middleware.LoggingMiddleware(s.logger),
+		mdlwr.AuthMiddleware(s.logger),
 	}
 
 	s.router.HandleFunc("POST /api/v1/auth/refresh", mw.Apply(s.auth.HandleRefreshTokens()))

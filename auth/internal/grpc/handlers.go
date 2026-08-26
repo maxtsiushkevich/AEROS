@@ -32,12 +32,12 @@ func (s *Auth) AddUser(ctx context.Context, req *grpc.AddUserRequest) (*grpc.Add
 
 	s.logger.Info("User created successfully", "id", req.Id, "email", req.Email)
 
-	access, err := auth.GenerateAccessToken(userAuthData.ID, userAuthData.Email, userAuthData.Version)
+	access, err := auth.GenerateAccessToken(&userAuthData.ID, &userAuthData.Email, &userAuthData.Version)
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}
 
-	refresh, err := auth.GenerateRefreshToken(userAuthData.ID, userAuthData.Email, userAuthData.Version)
+	refresh, err := auth.GenerateRefreshToken(&userAuthData.ID, &userAuthData.Email, &userAuthData.Version)
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}

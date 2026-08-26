@@ -18,23 +18,30 @@ func NewAuthError(code, message string) *AuthError {
 	}
 }
 
-func NewUserNotFoundError(email string) *AuthError {
+func UserNotFoundError(email string) *AuthError {
 	return &AuthError{
 		Code:    "USER_NOT_FOUND",
 		Message: fmt.Sprintf("user with email %s not found", email),
 	}
 }
 
-func NewUserAlreadyExistsError(email string) *AuthError {
+func UserAlreadyExistsError(email string) *AuthError {
 	return &AuthError{
 		Code:    "USER_ALREADY_EXISTS",
 		Message: fmt.Sprintf("user with email %s already exists", email),
 	}
 }
 
-func NewInvalidPasswordError(reason string) *AuthError {
+func InvalidPasswordError(reason string) *AuthError {
 	return &AuthError{
 		Code:    "INVALID_PASSWORD",
+		Message: reason,
+	}
+}
+
+func CreateTokenError(reason string) *AuthError {
+	return &AuthError{
+		Code:    "TOKEN_ERROR",
 		Message: reason,
 	}
 }
