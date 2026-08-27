@@ -9,16 +9,25 @@ import (
 )
 
 type AuthorizationService interface {
-	CanAccess(string, string, string) bool
+	AddUserToRole(id string, role Role)
+	IsAuthenticated(sub string, obj string, act string) (bool, error)
 }
 
 type CasbinService struct {
 	config   *CasbinConfig
-	Enforcer *casbin.Enforcer
+	enforcer *casbin.Enforcer
 }
 
-func (cs *CasbinService) CanAccess(id string, path string, action string) bool {
-	return true
+func (cs *CasbinService) AddUserToRole(id string, role Role) {
+	cs.enforcer.AddGroupingPolicy(id, string(role))
+}
+
+func (cs *CasbinService) IsAuthenticated(sub string, obj string, act string) (bool, error) {
+	ok, err := cs.enforcer.Enforce(sub, obj, act)
+	if err != nil {
+		return ok, err
+	}
+	return ok, nil
 }
 
 func NewCasbinService(configPath string) *CasbinService {
@@ -49,6 +58,6 @@ func NewCasbinService(configPath string) *CasbinService {
 	}
 
 	return &CasbinService{
-		Enforcer: e,
+		enforcer: e,
 	}
 }
