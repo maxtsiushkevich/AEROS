@@ -5,8 +5,9 @@ import (
 	"auth/internal/cache"
 	"auth/internal/errors"
 	"auth/internal/storage"
-
 	"context"
+
+	"github.com/google/uuid"
 )
 
 type AuthService struct {
@@ -49,6 +50,22 @@ func (s *AuthService) Login(ctx context.Context, email *string, password *string
 
 func (s *AuthService) Logout(ctx context.Context, access string, refresh string) {
 	// Add tokens to blacklist (Redis or Memcached)
+}
+
+func (s *AuthService) RefreshTokens(ctx context.Context, userID *uuid.UUID, email *string, version *uint32) (access *string, refresh *string, err error) {
+	newAccessToken, err := auth.GenerateAccessToken(userID, email, version)
+	if err != nil {
+		return nil, nil, errors.CreateTokenError("failed to create access token")
+	}
+
+	newRefreshToken, err := auth.GenerateRefreshToken(userID, email, version)
+	if err != nil {
+		return nil, nil, errors.CreateTokenError("failed to create refresh token")
+	}
+
+	access = &newAccessToken
+	refresh = &newRefreshToken
+	return access, refresh, nil
 }
 
 func (s *AuthService) Refresh(ctx context.Context, oldRefreshToken string) (access string, refresh string, err error) {

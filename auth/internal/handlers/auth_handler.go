@@ -1,8 +1,8 @@
 package handlers
 
 import (
+	"auth/internal/auth"
 	"auth/internal/dto"
-	"auth/internal/errors"
 	"auth/internal/service"
 	"auth/internal/storage"
 	"encoding/json"
@@ -10,6 +10,7 @@ import (
 	"net/http"
 
 	"github.com/go-playground/validator/v10"
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/maxtsiushkevich/AEROS/pkg/httperr"
 )
 
@@ -21,11 +22,6 @@ type AuthHandler struct {
 }
 
 func NewAuthHandler(storage storage.AuthStorage, logger *slog.Logger) (*AuthHandler, error) {
-	if err := storage.Open(); err != nil {
-		logger.Error("Failed to open storage", "err", err)
-		return nil, errors.NewAuthError("STORAGE_INIT_FAILED", "failed to initialize storage")
-	}
-
 	return &AuthHandler{
 		storage:  storage,
 		service:  service.CreateAuthService(storage),
@@ -36,12 +32,48 @@ func NewAuthHandler(storage storage.AuthStorage, logger *slog.Logger) (*AuthHand
 
 func (h *AuthHandler) HandleRefreshTokens() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusOK)
+
+		cookie, err := r.Cookie("refresh_token")
+		if err != nil {
+			httperr.Write(w, http.StatusUnauthorized, "Refresh token missed")
+			return
+		}
+
+		claims := &auth.Claims{}
+		tkn, err := jwt.ParseWithClaims(cookie.Value, claims,
+			func(t *jwt.Token) (interface{}, error) { return auth.JwtRefreshKey, nil },
+			jwt.WithValidMethods([]string{"HS256"}),
+		)
+		if err != nil || !tkn.Valid || claims.Type != "refresh" {
+			httperr.Write(w, http.StatusUnauthorized, "Invalid refresh token")
+			return
+		}
+
+		access, refresh, err := h.service.RefreshTokens(r.Context(), &claims.Id, &claims.Email, &claims.Version)
+		if err != nil {
+			httperr.Write(w, http.StatusUnauthorized, err.Error())
+			return
+		}
+
+		http.SetCookie(w, &http.Cookie{
+			Name:     "refresh_token",
+			Value:    *refresh,
+			Path:     "/",
+			HttpOnly: true,
+			Secure:   false,
+			SameSite: http.SameSiteStrictMode,
+		})
+
+		w.Header().Set("Content-Type", "application/json")
+		if err := json.NewEncoder(w).Encode(map[string]string{"access_token": *access}); err != nil {
+			httperr.Write(w, http.StatusInternalServerError, "Failed to write response")
+		}
 	}
 }
 
 func (h *AuthHandler) HandleLogin() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+
 		ctx := r.Context()
 		var authRequest dto.AuthRequest
 
@@ -69,7 +101,7 @@ func (h *AuthHandler) HandleLogin() http.HandlerFunc {
 			Value:    *refresh,
 			Path:     "/",
 			HttpOnly: true,
-			Secure:   true,
+			Secure:   false,
 			SameSite: http.SameSiteStrictMode,
 		})
 
@@ -90,6 +122,12 @@ func (h *AuthHandler) HandleLogout() http.HandlerFunc {
 }
 
 func (h *AuthHandler) HandleChangePassword() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}
+}
+
+func (h *AuthHandler) HandleSecre() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	}

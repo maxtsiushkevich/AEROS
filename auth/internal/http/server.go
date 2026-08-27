@@ -3,44 +3,40 @@ package http
 import (
 	"auth/internal/config"
 	"auth/internal/handlers"
-	mdlwr "auth/internal/middleware"
+	"auth/internal/middleware"
 	"auth/internal/storage"
 	"auth/rbac"
 	"log/slog"
 	"net/http"
 
 	"github.com/go-playground/validator/v10"
-	"github.com/maxtsiushkevich/AEROS/pkg/middleware"
 )
 
 type Server struct {
-	config    *config.Config
-	router    *http.ServeMux
-	logger    *slog.Logger
-	validator *validator.Validate
-
+	config      *config.Config
+	router      *http.ServeMux
+	logger      *slog.Logger
+	validator   *validator.Validate
 	rbacService rbac.AuthorizationService
-
-	auth *handlers.AuthHandler
+	auth        *handlers.AuthHandler
+	storage     storage.AuthStorage
 }
 
-func CreateServer(cfg *config.Config, rbac rbac.AuthorizationService) *Server {
+func CreateServer(cfg *config.Config, logger *slog.Logger, rbac rbac.AuthorizationService, db storage.AuthStorage) *Server {
 	return &Server{
 		config:      cfg,
 		router:      http.NewServeMux(),
+		logger:      logger,
 		validator:   validator.New(),
 		rbacService: rbac,
+		storage:     db,
 	}
 }
 
 // Start web server. Init data storage and router
 func (s *Server) Start() error {
-	if s.logger == nil {
-		s.logger = config.SetupLogger(s.config.Env)
-	}
-
 	var err error
-	s.auth, err = handlers.NewAuthHandler(storage.CreateStorage(s.config, s.logger), s.logger)
+	s.auth, err = handlers.NewAuthHandler(s.storage, s.logger)
 
 	if err != nil {
 		s.logger.Error("Failed to initialize auth handler", "err", err)
@@ -58,13 +54,18 @@ func (s *Server) configureRouter() {
 
 	mw := middleware.MiddlewareGroup{
 		middleware.LoggingMiddleware(s.logger),
-		mdlwr.AuthMiddleware(s.rbacService),
+	}
+
+	secure_mw := middleware.MiddlewareGroup{
+		middleware.LoggingMiddleware(s.logger),
+		middleware.AuthMiddleware(s.rbacService),
 	}
 
 	s.router.HandleFunc("POST /api/v1/auth/refresh", mw.Apply(s.auth.HandleRefreshTokens()))
 	s.router.HandleFunc("POST /api/v1/auth/login", mw.Apply(s.auth.HandleLogin()))
 	s.router.HandleFunc("POST /api/v1/auth/logout", mw.Apply(s.auth.HandleLogout()))
-	s.router.HandleFunc("POST /api/v1/auth/change-password", mw.Apply(s.auth.HandleChangePassword()))
+	s.router.HandleFunc("POST /api/v1/auth/change-password", secure_mw.Apply(s.auth.HandleChangePassword()))
+	s.router.HandleFunc("GET /api/v1/secured", secure_mw.Apply(s.auth.HandleChangePassword()))
 
 	s.logger.Info("Router configured")
 }

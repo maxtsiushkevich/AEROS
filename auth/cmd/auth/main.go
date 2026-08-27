@@ -4,16 +4,27 @@ import (
 	"auth/internal/config"
 	"auth/internal/grpc"
 	"auth/internal/http"
+	"auth/internal/storage"
 	"auth/rbac"
 	"context"
 	"flag"
 	"fmt"
-	"log/slog"
+	"os"
 )
 
 var configPath = flag.String("config", "config/config.yaml", "Path to configuration file")
 
+func ensureJWTEnv() {
+	if _, ok := os.LookupEnv("JWT_SECRET"); !ok || os.Getenv("JWT_SECRET") == "" {
+		_ = os.Setenv("JWT_SECRET", "dev-access-secret")
+	}
+	if _, ok := os.LookupEnv("JWT_REFRESH_SECRET"); !ok || os.Getenv("JWT_REFRESH_SECRET") == "" {
+		_ = os.Setenv("JWT_REFRESH_SECRET", "dev-refresh-secret")
+	}
+}
+
 func main() {
+	ensureJWTEnv()
 
 	// Load config
 	flag.Parse()
@@ -23,15 +34,27 @@ func main() {
 		return
 	}
 
+	logger := config.SetupLogger(cfg.Env)
+
+	db := storage.CreateStorage(&cfg, logger)
+	if err := db.Open(); err != nil {
+		logger.Error("Failed to open database", "err", err)
+		return
+	}
+	defer func() {
+		if err := db.Close(); err != nil {
+			logger.Error("Failed to close database", "err", err)
+		}
+	}()
+
+	rbacService := rbac.NewCasbinService(&cfg.Casbin.ConfigPath, logger)
+	server := http.CreateServer(&cfg, logger, rbacService, db)
+
 	// Start gRPC server
-	go grpc.StartGPRCServer(context.Background(), &cfg)
+	go grpc.StartGPRCServer(context.Background(), &cfg, logger, rbacService, db)
 
 	// Init server
-
-	rbacService := rbac.NewCasbinService(cfg.Casbin.ConfigPath)
-	server := http.CreateServer(&cfg, rbacService)
-
 	if err := server.Start(); err != nil {
-		slog.Error("Server failed", "err", err)
+		logger.Error("Server failed", "err", err)
 	}
 }

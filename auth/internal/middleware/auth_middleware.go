@@ -2,6 +2,7 @@ package middleware
 
 import (
 	"auth/internal/auth"
+	"auth/rbac"
 	"context"
 	"fmt"
 	"net/http"
@@ -9,19 +10,18 @@ import (
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/maxtsiushkevich/AEROS/pkg/httperr"
-	"github.com/maxtsiushkevich/AEROS/pkg/rbac"
 )
 
-func methodToAction(method string) string {
+func methodToAction(method string) rbac.Action {
 	switch method {
 	case http.MethodGet:
-		return "read"
+		return rbac.Read
 	case http.MethodPost, http.MethodPut, http.MethodPatch:
-		return "write"
+		return rbac.Write
 	case http.MethodDelete:
-		return "delete"
+		return rbac.Delete
 	default:
-		return "read"
+		return rbac.Read
 	}
 }
 
@@ -60,10 +60,6 @@ func parseAccessToken(tokenString string) (*auth.Claims, error) {
 	if claims.Type != "access" {
 		return nil, fmt.Errorf("token type is not access")
 	}
-	if claims.Subject == "" {
-		return nil, fmt.Errorf("missing subject claim")
-	}
-
 	return claims, nil
 }
 
@@ -80,6 +76,16 @@ func ClaimsFromContext(ctx context.Context) (*auth.Claims, bool) {
 	return claims, ok
 }
 
+// Usage ClaimsFromContext
+// claims, ok := middleware.ClaimsFromContext(r.Context())
+// if !ok {
+// 	httperr.Write(w, http.StatusUnauthorized, "missing claims")
+// 	return
+// }
+// userID := claims.Id
+// email := claims.Email
+// version := claims.Version
+
 func AuthMiddleware(rbacService rbac.AuthorizationService) func(http.HandlerFunc) http.HandlerFunc {
 	return func(next http.HandlerFunc) http.HandlerFunc {
 		return func(w http.ResponseWriter, r *http.Request) {
@@ -91,14 +97,16 @@ func AuthMiddleware(rbacService rbac.AuthorizationService) func(http.HandlerFunc
 
 			claims, err := parseAccessToken(tokenString)
 			if err != nil {
+				fmt.Println("JWT parse error:", err)
 				httperr.Write(w, http.StatusUnauthorized, "invalid token")
 				return
 			}
 
+			// write claims to context for further use in handlers
 			r = r.WithContext(WithClaims(r.Context(), claims))
 
 			act := methodToAction(r.Method)
-			ok, err := rbacService.IsAuthenticated(claims.Subject, r.URL.Path, act)
+			ok, err := rbacService.IsAuthenticated(claims.Id.String(), r.URL.Path, act)
 			if err != nil {
 				httperr.Write(w, http.StatusInternalServerError, "access check error")
 				return

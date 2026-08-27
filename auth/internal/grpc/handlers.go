@@ -4,6 +4,7 @@ import (
 	grpc "auth/api/proto"
 	auth "auth/internal/auth"
 	"auth/internal/errors"
+	"auth/rbac"
 	"context"
 
 	"google.golang.org/grpc/codes"
@@ -31,6 +32,9 @@ func (s *Auth) AddUser(ctx context.Context, req *grpc.AddUserRequest) (*grpc.Add
 	}
 
 	s.logger.Info("User created successfully", "id", req.Id, "email", req.Email)
+
+	// Create permissions for user
+	s.rbacService.AddUserToRole(userAuthData.ID.String(), rbac.User)
 
 	access, err := auth.GenerateAccessToken(&userAuthData.ID, &userAuthData.Email, &userAuthData.Version)
 	if err != nil {
