@@ -2,7 +2,6 @@ package middleware
 
 import (
 	"auth/internal/auth"
-	"auth/rbac"
 	"context"
 	"fmt"
 	"net/http"
@@ -10,6 +9,7 @@ import (
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/maxtsiushkevich/AEROS/pkg/httperr"
+	"github.com/maxtsiushkevich/AEROS/pkg/rbac"
 )
 
 func methodToAction(method string) string {
