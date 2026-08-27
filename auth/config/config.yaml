@@ -13,3 +13,6 @@ http_server:
 
 grpc_server:
     address: localhost:50051
+
+casbin:
+    config_path: .\rbac\config.yaml

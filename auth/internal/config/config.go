@@ -20,6 +20,11 @@ type Config struct {
 	Database   DbConfig         `yaml:"database"`
 	HTTPServer HTTPServerConfig `yaml:"http_server"`
 	GRPCServer GRPCServerConfig `yaml:"grpc_server"`
+	Casbin     CasbinConfig     `yaml:"casbin"`
+}
+
+type CasbinConfig struct {
+	ConfigPath string `yaml:"config_path"`
 }
 
 type DbConfig struct {

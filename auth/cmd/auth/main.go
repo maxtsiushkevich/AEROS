@@ -4,6 +4,7 @@ import (
 	"auth/internal/config"
 	"auth/internal/grpc"
 	"auth/internal/http"
+	"auth/rbac"
 	"context"
 	"flag"
 	"fmt"
@@ -26,7 +27,10 @@ func main() {
 	go grpc.StartGPRCServer(context.Background(), &cfg)
 
 	// Init server
-	server := http.CreateServer(&cfg)
+
+	rbacService := rbac.NewCasbinService(cfg.Casbin.ConfigPath)
+	server := http.CreateServer(&cfg, rbacService)
+
 	if err := server.Start(); err != nil {
 		slog.Error("Server failed", "err", err)
 	}

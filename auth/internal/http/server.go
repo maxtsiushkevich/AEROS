@@ -5,6 +5,7 @@ import (
 	"auth/internal/handlers"
 	mdlwr "auth/internal/middleware"
 	"auth/internal/storage"
+	"auth/rbac"
 	"log/slog"
 	"net/http"
 
@@ -18,14 +19,17 @@ type Server struct {
 	logger    *slog.Logger
 	validator *validator.Validate
 
+	rbacService rbac.AuthorizationService
+
 	auth *handlers.AuthHandler
 }
 
-func CreateServer(cfg *config.Config) *Server {
+func CreateServer(cfg *config.Config, rbac rbac.AuthorizationService) *Server {
 	return &Server{
-		config:    cfg,
-		router:    http.NewServeMux(),
-		validator: validator.New(),
+		config:      cfg,
+		router:      http.NewServeMux(),
+		validator:   validator.New(),
+		rbacService: rbac,
 	}
 }
 
@@ -54,7 +58,7 @@ func (s *Server) configureRouter() {
 
 	mw := middleware.MiddlewareGroup{
 		middleware.LoggingMiddleware(s.logger),
-		mdlwr.AuthMiddleware(s.logger),
+		mdlwr.AuthMiddleware(s.rbacService),
 	}
 
 	s.router.HandleFunc("POST /api/v1/auth/refresh", mw.Apply(s.auth.HandleRefreshTokens()))
