@@ -1,8 +1,0 @@
-casbin_db_host: localhost
-casbin_db_port: 5432
-
-casbin_db_user: user
-casbin_db_pass: 123
-casbin_db_name: casbin
-
-casbin_config_path: rbac/model.conf
