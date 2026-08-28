@@ -2,13 +2,12 @@ package middleware
 
 import (
 	"auth/internal/auth"
+	"auth/internal/storage"
 	"auth/rbac"
 	"context"
 	"fmt"
 	"net/http"
-	"strings"
 
-	"github.com/golang-jwt/jwt/v5"
 	"github.com/maxtsiushkevich/AEROS/pkg/httperr"
 )
 
@@ -23,44 +22,6 @@ func methodToAction(method string) rbac.Action {
 	default:
 		return rbac.Read
 	}
-}
-
-func tokenFromRequest(r *http.Request) string {
-	header := strings.TrimSpace(r.Header.Get("Authorization"))
-	if header == "" {
-		return ""
-	}
-
-	parts := strings.Fields(header)
-	if len(parts) != 2 || !strings.EqualFold(parts[0], "Bearer") {
-		return ""
-	}
-
-	return parts[1]
-}
-
-func parseAccessToken(tokenString string) (*auth.Claims, error) {
-	token, err := jwt.ParseWithClaims(tokenString, &auth.Claims{}, func(token *jwt.Token) (interface{}, error) {
-		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
-		}
-		return auth.JwtAccessKey, nil
-	})
-	if err != nil {
-		return nil, err
-	}
-	if !token.Valid {
-		return nil, fmt.Errorf("invalid token")
-	}
-
-	claims, ok := token.Claims.(*auth.Claims)
-	if !ok {
-		return nil, fmt.Errorf("invalid claims")
-	}
-	if claims.Type != "access" {
-		return nil, fmt.Errorf("token type is not access")
-	}
-	return claims, nil
 }
 
 type contextKey string
@@ -86,18 +47,26 @@ func ClaimsFromContext(ctx context.Context) (*auth.Claims, bool) {
 // email := claims.Email
 // version := claims.Version
 
-func AuthMiddleware(rbacService rbac.AuthorizationService) func(http.HandlerFunc) http.HandlerFunc {
+func AuthMiddleware(rbacService rbac.AuthorizationService, authStorage storage.AuthStorage) func(http.HandlerFunc) http.HandlerFunc {
 	return func(next http.HandlerFunc) http.HandlerFunc {
 		return func(w http.ResponseWriter, r *http.Request) {
-			tokenString := tokenFromRequest(r)
+			tokenString := auth.TokenFromRequest(r)
 			if tokenString == "" {
 				httperr.Write(w, http.StatusUnauthorized, "missing bearer token")
 				return
 			}
 
-			claims, err := parseAccessToken(tokenString)
+			// there is check if token in blacklist - if yes, return 401
+
+			claims, err := auth.ParseAccessToken(tokenString)
 			if err != nil {
 				fmt.Println("JWT parse error:", err)
+				httperr.Write(w, http.StatusUnauthorized, "invalid token")
+				return
+			}
+
+			user, err := authStorage.ReadByID(r.Context(), claims.Id)
+			if err != nil || user.Version != claims.Version {
 				httperr.Write(w, http.StatusUnauthorized, "invalid token")
 				return
 			}

@@ -1,6 +1,7 @@
 package http
 
 import (
+	"auth/internal/cache"
 	"auth/internal/config"
 	"auth/internal/handlers"
 	"auth/internal/middleware"
@@ -20,9 +21,10 @@ type Server struct {
 	rbacService rbac.AuthorizationService
 	auth        *handlers.AuthHandler
 	storage     storage.AuthStorage
+	cache       cache.Cache
 }
 
-func CreateServer(cfg *config.Config, logger *slog.Logger, rbac rbac.AuthorizationService, db storage.AuthStorage) *Server {
+func CreateServer(cfg *config.Config, logger *slog.Logger, rbac rbac.AuthorizationService, db storage.AuthStorage, cache cache.Cache) *Server {
 	return &Server{
 		config:      cfg,
 		router:      http.NewServeMux(),
@@ -30,13 +32,14 @@ func CreateServer(cfg *config.Config, logger *slog.Logger, rbac rbac.Authorizati
 		validator:   validator.New(),
 		rbacService: rbac,
 		storage:     db,
+		cache:       cache,
 	}
 }
 
 // Start web server. Init data storage and router
 func (s *Server) Start() error {
 	var err error
-	s.auth, err = handlers.NewAuthHandler(s.storage, s.logger)
+	s.auth, err = handlers.NewAuthHandler(s.storage, s.logger, s.cache)
 
 	if err != nil {
 		s.logger.Error("Failed to initialize auth handler", "err", err)
@@ -58,7 +61,7 @@ func (s *Server) configureRouter() {
 
 	secure_mw := middleware.MiddlewareGroup{
 		middleware.LoggingMiddleware(s.logger),
-		middleware.AuthMiddleware(s.rbacService),
+		middleware.AuthMiddleware(s.rbacService, s.storage),
 	}
 
 	s.router.HandleFunc("POST /api/v1/auth/refresh", mw.Apply(s.auth.HandleRefreshTokens()))

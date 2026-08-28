@@ -16,3 +16,9 @@ grpc_server:
 
 casbin:
     config_path: .\rbac\config.yaml
+
+redis:
+    address: localhost:6379
+    db_pass: 123
+    db: 0
+    proto: 2

@@ -1,8 +1,9 @@
 package handlers
 
 import (
-	"auth/internal/auth"
+	"auth/internal/cache"
 	"auth/internal/dto"
+	authErrors "auth/internal/errors"
 	"auth/internal/service"
 	"auth/internal/storage"
 	"encoding/json"
@@ -10,21 +11,22 @@ import (
 	"net/http"
 
 	"github.com/go-playground/validator/v10"
-	"github.com/golang-jwt/jwt/v5"
 	"github.com/maxtsiushkevich/AEROS/pkg/httperr"
 )
 
 type AuthHandler struct {
 	storage  storage.AuthStorage
+	cache    cache.Cache
 	service  *service.AuthService
 	validate *validator.Validate
 	logger   *slog.Logger
 }
 
-func NewAuthHandler(storage storage.AuthStorage, logger *slog.Logger) (*AuthHandler, error) {
+func NewAuthHandler(storage storage.AuthStorage, logger *slog.Logger, cache cache.Cache) (*AuthHandler, error) {
 	return &AuthHandler{
 		storage:  storage,
-		service:  service.CreateAuthService(storage),
+		cache:    cache,
+		service:  service.CreateAuthService(storage, cache),
 		validate: validator.New(),
 		logger:   logger,
 	}, nil
@@ -35,29 +37,23 @@ func (h *AuthHandler) HandleRefreshTokens() http.HandlerFunc {
 
 		cookie, err := r.Cookie("refresh_token")
 		if err != nil {
-			httperr.Write(w, http.StatusUnauthorized, "Refresh token missed")
+			httperr.Write(w, http.StatusBadRequest, "Refresh token missed")
 			return
 		}
 
-		claims := &auth.Claims{}
-		tkn, err := jwt.ParseWithClaims(cookie.Value, claims,
-			func(t *jwt.Token) (interface{}, error) { return auth.JwtRefreshKey, nil },
-			jwt.WithValidMethods([]string{"HS256"}),
-		)
-		if err != nil || !tkn.Valid || claims.Type != "refresh" {
-			httperr.Write(w, http.StatusUnauthorized, "Invalid refresh token")
-			return
-		}
-
-		access, refresh, err := h.service.RefreshTokens(r.Context(), &claims.Id, &claims.Email, &claims.Version)
+		access, refresh, err := h.service.Refresh(r.Context(), cookie.Value)
 		if err != nil {
-			httperr.Write(w, http.StatusUnauthorized, err.Error())
+			status := http.StatusUnauthorized
+			if authErr, ok := err.(*authErrors.AuthError); ok && authErr.Code == "CACHE_ERROR" {
+				status = http.StatusInternalServerError
+			}
+			httperr.Write(w, status, err.Error())
 			return
 		}
 
 		http.SetCookie(w, &http.Cookie{
 			Name:     "refresh_token",
-			Value:    *refresh,
+			Value:    refresh,
 			Path:     "/",
 			HttpOnly: true,
 			Secure:   false,
@@ -65,7 +61,7 @@ func (h *AuthHandler) HandleRefreshTokens() http.HandlerFunc {
 		})
 
 		w.Header().Set("Content-Type", "application/json")
-		if err := json.NewEncoder(w).Encode(map[string]string{"access_token": *access}); err != nil {
+		if err := json.NewEncoder(w).Encode(map[string]string{"access_token": access}); err != nil {
 			httperr.Write(w, http.StatusInternalServerError, "Failed to write response")
 		}
 	}
@@ -109,8 +105,24 @@ func (h *AuthHandler) HandleLogin() http.HandlerFunc {
 		json.NewEncoder(w).Encode(map[string]string{"access_token": *access})
 	}
 }
+
 func (h *AuthHandler) HandleLogout() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+
+		refreshToken, err := r.Cookie("refresh_token")
+		if err != nil {
+			w.WriteHeader(http.StatusOK)
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(map[string]string{"message": "Logout complete"})
+			return
+		}
+
+		err = h.service.Logout(r.Context(), refreshToken.Value)
+		if err != nil {
+			httperr.Write(w, http.StatusInternalServerError, "Failed to logout")
+			h.logger.Error("Error", "err", err)
+		}
+
 		http.SetCookie(w, &http.Cookie{
 			Name: "refresh_token", Value: "", Path: "/",
 			HttpOnly: true, MaxAge: -1, SameSite: http.SameSiteStrictMode,

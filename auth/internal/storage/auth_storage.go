@@ -21,6 +21,7 @@ type AuthStorage interface {
 	Close() error
 	Create(ctx context.Context, user *models.UserAuthData) (*models.UserAuthData, error)
 	Read(ctx context.Context, email *string) (*models.UserAuthData, error)
+	ReadByID(ctx context.Context, id uuid.UUID) (*models.UserAuthData, error)
 	Update(ctx context.Context, user *models.UserAuthDataUpdate) (*models.UserAuthData, error)
 	Delete(ctx context.Context, id uuid.UUID) error
 }
@@ -98,6 +99,19 @@ func (s *AuthPostgresStorage) Read(ctx context.Context, email *string) (*models.
 			return nil, errors.UserNotFoundError(*email)
 		}
 		s.logger.Error("Failed to read user", "email", email, "err", err)
+		return nil, errors.NewAuthError("READ_FAILED", "failed to read user")
+	}
+
+	return &authData, nil
+}
+
+func (s *AuthPostgresStorage) ReadByID(ctx context.Context, id uuid.UUID) (*models.UserAuthData, error) {
+	var authData models.UserAuthData
+	err := s.db.WithContext(ctx).Where("id = ?", id).First(&authData).Error
+	if err != nil {
+		if errors_pkg.Is(err, gorm.ErrRecordNotFound) {
+			return nil, errors.NewAuthError("USER_NOT_FOUND", fmt.Sprintf("auth data with id %s not found", id))
+		}
 		return nil, errors.NewAuthError("READ_FAILED", "failed to read user")
 	}
 

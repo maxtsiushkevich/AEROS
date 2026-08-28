@@ -21,6 +21,7 @@ type Config struct {
 	HTTPServer HTTPServerConfig `yaml:"http_server"`
 	GRPCServer GRPCServerConfig `yaml:"grpc_server"`
 	Casbin     CasbinConfig     `yaml:"casbin"`
+	Redis      RedisConfig      `yaml:"redis"`
 }
 
 type CasbinConfig struct {
@@ -42,6 +43,13 @@ type HTTPServerConfig struct {
 
 type GRPCServerConfig struct {
 	Address string `yaml:"address"`
+}
+
+type RedisConfig struct {
+	Address  string `yaml:"address"`
+	Password string `yaml:"db_pass"`
+	Db       int    `yaml:"db"`
+	Protocol int    `yaml:"proto"`
 }
 
 func Load(filePath string) (Config, error) {

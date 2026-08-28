@@ -1,6 +1,7 @@
 package main
 
 import (
+	"auth/internal/cache"
 	"auth/internal/config"
 	"auth/internal/grpc"
 	"auth/internal/http"
@@ -36,19 +37,31 @@ func main() {
 
 	logger := config.SetupLogger(cfg.Env)
 
+	// Setup database
 	db := storage.CreateStorage(&cfg, logger)
 	if err := db.Open(); err != nil {
 		logger.Error("Failed to open database", "err", err)
 		return
 	}
+
+	// Setup cache
+	cache, err := cache.NewRedis(&cfg, logger)
+	if err != nil {
+		logger.Error("Failed to open Redis", "err", err)
+		return
+	}
+
 	defer func() {
 		if err := db.Close(); err != nil {
 			logger.Error("Failed to close database", "err", err)
 		}
 	}()
 
+	// Setup RBAC service
 	rbacService := rbac.NewCasbinService(&cfg.Casbin.ConfigPath, logger)
-	server := http.CreateServer(&cfg, logger, rbacService, db)
+
+	// Create HTTP server
+	server := http.CreateServer(&cfg, logger, rbacService, db, cache)
 
 	// Start gRPC server
 	go grpc.StartGPRCServer(context.Background(), &cfg, logger, rbacService, db)
