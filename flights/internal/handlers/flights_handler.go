@@ -11,8 +11,8 @@ import (
 	"io"
 	"net/http"
 
-	"github.com/maxtsiushkevich/AEROS/pkg/httperr"
-	"github.com/maxtsiushkevich/AEROS/pkg/httpresp"
+	"flights/pkg/httperr"
+	"flights/pkg/httpresp"
 
 	"github.com/go-playground/validator/v10"
 	"github.com/google/uuid"
