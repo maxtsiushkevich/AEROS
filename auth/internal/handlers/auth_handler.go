@@ -3,9 +3,9 @@ package handlers
 import (
 	"auth/internal/cache"
 	"auth/internal/dto"
-	authErrors "auth/internal/errors"
 	"auth/internal/service"
 	"auth/internal/storage"
+	authErrors "auth/pkg/errors"
 	"encoding/json"
 	"log/slog"
 	"net/http"

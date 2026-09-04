@@ -2,9 +2,9 @@ package grpc
 
 import (
 	auth "auth/api/proto"
-	hash "auth/internal/auth"
-	"auth/internal/errors"
 	"auth/internal/models"
+	hash "auth/pkg/auth"
+	"auth/pkg/errors"
 
 	"github.com/go-playground/validator/v10"
 	"github.com/google/uuid"

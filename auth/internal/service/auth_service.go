@@ -1,10 +1,10 @@
 package service
 
 import (
-	"auth/internal/auth"
 	"auth/internal/cache"
-	"auth/internal/errors"
 	"auth/internal/storage"
+	"auth/pkg/auth"
+	"auth/pkg/errors"
 	"context"
 	"fmt"
 	"time"
@@ -70,7 +70,7 @@ func (s *AuthService) Logout(ctx context.Context, refresh string) error {
 		return nil
 	}
 
-	return s.revokedTokensCache.Set(ctx, "revoked:refresh:"+refresh, []byte("1"), ttl)
+	return s.revokedTokensCache.Set(ctx, "revoked:refresh:"+refresh, []byte("revoked"), ttl)
 }
 
 func (s *AuthService) refreshTokens(ctx context.Context, userID *uuid.UUID, email *string, version *uint32) (access *string, refresh *string, err error) {

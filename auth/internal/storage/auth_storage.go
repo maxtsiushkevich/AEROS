@@ -2,8 +2,8 @@ package storage
 
 import (
 	"auth/internal/config"
-	"auth/internal/errors"
 	"auth/internal/models"
+	"auth/pkg/errors"
 	"context"
 	errors_pkg "errors"
 	"fmt"

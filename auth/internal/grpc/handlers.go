@@ -2,8 +2,8 @@ package grpc
 
 import (
 	grpc "auth/api/proto"
-	auth "auth/internal/auth"
-	"auth/internal/errors"
+	auth "auth/pkg/auth"
+	"auth/pkg/errors"
 	"auth/rbac"
 	"context"
 
