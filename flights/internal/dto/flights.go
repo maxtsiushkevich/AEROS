@@ -21,7 +21,7 @@ type CreateFlightRequest struct {
 	Destination  *string    `json:"destination" validate:"required,len=3,alpha"`
 	Date         *time.Time `json:"date" validate:"required,gt=now"`
 	Status       *string    `json:"status,omitempty" validate:"omitempty,oneof=Scheduled CheckIn Boarding Delayed Departed Arrived Cancelled Redirected"`
-	Aircraft     *string    `json:"aircraft" validate:"required"`
+	Aircraft     *string    `json:"aircraft" validate:"required,gt=0"`
 }
 
 type PatchFlightRequest struct {
@@ -31,7 +31,7 @@ type PatchFlightRequest struct {
 	Destination  *string    `json:"destination,omitempty" validate:"omitempty,len=3,alpha"`
 	Date         *time.Time `json:"date,omitempty" validate:"omitempty"`
 	Status       *string    `json:"status,omitempty" validate:"omitempty"`
-	Aircraft     *string    `json:"aircraft,omitempty" validate:"omitempty"`
+	Aircraft     *string    `json:"aircraft,omitempty" validate:"omitempty,gt=0"`
 }
 
 type FlightResponse struct {

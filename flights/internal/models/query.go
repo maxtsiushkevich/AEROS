@@ -7,7 +7,7 @@ import (
 )
 
 type FlightQuery struct {
-	FlightNumber string `validate:"max=8"`
+	FlightNumber string `validate:"omitnil,max=8"`
 	Origin       string `validate:"max=3"`
 	Destination  string `validate:"max=3"`
 	Status       string `validate:"omitempty,oneof=Scheduled CheckIn Boarding Delayed Departed Arrived Cancelled Redirected"`

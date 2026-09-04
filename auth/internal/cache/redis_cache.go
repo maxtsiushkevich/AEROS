@@ -9,12 +9,12 @@ import (
 	"github.com/redis/go-redis/v9"
 )
 
-type RedisCache struct {
+type RedisRevokedTokenCache struct {
 	client *redis.Client
 	logger *slog.Logger
 }
 
-func NewRedis(cfg *config.Config, logger *slog.Logger) (*RedisCache, error) {
+func NewRedis(cfg *config.Config, logger *slog.Logger) (*RedisRevokedTokenCache, error) {
 	client := redis.NewClient(&redis.Options{
 		Addr:     cfg.Redis.Address,
 		Password: cfg.Database.Password,
@@ -28,14 +28,14 @@ func NewRedis(cfg *config.Config, logger *slog.Logger) (*RedisCache, error) {
 		return nil, err
 	}
 
-	return &RedisCache{
+	return &RedisRevokedTokenCache{
 		client: client,
 		logger: logger,
 	}, nil
 }
 
-func (c *RedisCache) Get(ctx context.Context, key string) ([]byte, error) {
-	value, err := c.client.Get(ctx, key).Bytes()
+func (c *RedisRevokedTokenCache) Get(ctx context.Context, tkn string) ([]byte, error) {
+	value, err := c.client.Get(ctx, "revoked:refresh:"+tkn).Bytes()
 	if err != nil {
 		return nil, err
 	}
@@ -43,10 +43,10 @@ func (c *RedisCache) Get(ctx context.Context, key string) ([]byte, error) {
 	return value, nil
 }
 
-func (c *RedisCache) Set(ctx context.Context, key string, value []byte, ttl time.Duration) error {
-	return c.client.Set(ctx, key, value, ttl).Err()
+func (c *RedisRevokedTokenCache) Set(ctx context.Context, tkn string, value []byte, ttl time.Duration) error {
+	return c.client.Set(ctx, "revoked:refresh:"+tkn, value, ttl).Err()
 }
 
-func (c *RedisCache) Delete(ctx context.Context, key string) error {
+func (c *RedisRevokedTokenCache) Delete(ctx context.Context, key string) error {
 	return c.client.Del(ctx, key).Err()
 }

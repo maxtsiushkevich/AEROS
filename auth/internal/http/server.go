@@ -21,10 +21,10 @@ type Server struct {
 	rbacService rbac.AuthorizationService
 	auth        *handlers.AuthHandler
 	storage     storage.AuthStorage
-	cache       cache.Cache
+	cache       cache.RevokedTokenCache
 }
 
-func CreateServer(cfg *config.Config, logger *slog.Logger, rbac rbac.AuthorizationService, db storage.AuthStorage, cache cache.Cache) *Server {
+func CreateServer(cfg *config.Config, logger *slog.Logger, rbac rbac.AuthorizationService, db storage.AuthStorage, cache cache.RevokedTokenCache) *Server {
 	return &Server{
 		config:      cfg,
 		router:      http.NewServeMux(),

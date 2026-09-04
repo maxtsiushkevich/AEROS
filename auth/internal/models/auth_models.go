@@ -14,7 +14,7 @@ func (UserAuthData) TableName() string {
 }
 
 type UserAuthDataUpdate struct {
-	ID                uuid.UUID
-	NewEmail          *string
-	NewHashedPassword *string
+	ID          uuid.UUID `json:"id" validate:"required"`
+	NewEmail    *string   `json:"email" validate:"omitnil,email"`
+	NewPassword *string   `json:"password" validate:"omitnil,min=8"`
 }

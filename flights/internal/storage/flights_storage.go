@@ -2,8 +2,9 @@ package storage
 
 import (
 	"context"
-	"errors"
+	errors_pkg "errors"
 	"flights/internal/config"
+	"flights/internal/errors"
 	"flights/internal/models"
 	"fmt"
 	"log/slog"
@@ -23,7 +24,7 @@ type FlightsStorage interface {
 	Delete(ctx context.Context, id uuid.UUID) error
 }
 
-var ErrFlightNotFound = errors.New("Flight not found")
+// var ErrFlightNotFound = errors.New("Flight not found")
 
 type FlightsPostgresStorage struct {
 	config *config.Config
@@ -132,13 +133,13 @@ func (s *FlightsPostgresStorage) Read(ctx context.Context, filter *models.Flight
 
 func (s *FlightsPostgresStorage) Update(ctx context.Context, flight *models.FlightUpdate) (*models.Flight, error) {
 	if flight == nil {
-		return nil, errors.New("flight update data is nil")
+		return nil, errors_pkg.New("flight update data is nil")
 	}
 
 	var existing models.Flight
 	if err := s.db.WithContext(ctx).First(&existing, "id = ?", flight.ID).Error; err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, fmt.Errorf("flight with id %s not found", flight.ID)
+		if errors_pkg.Is(err, gorm.ErrRecordNotFound) {
+			return nil, errors.FlightNotFoundError
 		}
 		return nil, fmt.Errorf("failed to fetch flight for update: %w", err)
 	}
@@ -175,7 +176,7 @@ func (s *FlightsPostgresStorage) Delete(ctx context.Context, id uuid.UUID) error
 		return fmt.Errorf("failed to delete flight in db: %w", result.Error)
 	}
 	if result.RowsAffected == 0 {
-		return fmt.Errorf("flight with id %s: %w", id, ErrFlightNotFound)
+		return errors.FlightNotFoundError
 	}
 
 	return nil

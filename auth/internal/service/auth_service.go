@@ -16,10 +16,10 @@ import (
 
 type AuthService struct {
 	storage            storage.AuthStorage
-	revokedTokensCache cache.Cache
+	revokedTokensCache cache.RevokedTokenCache
 }
 
-func CreateAuthService(storage storage.AuthStorage, cache cache.Cache) *AuthService {
+func CreateAuthService(storage storage.AuthStorage, cache cache.RevokedTokenCache) *AuthService {
 	return &AuthService{
 		storage:            storage,
 		revokedTokensCache: cache,
@@ -53,9 +53,9 @@ func (s *AuthService) Login(ctx context.Context, email *string, password *string
 	return access, refresh, nil
 }
 
-func (s *AuthService) Logout(ctx context.Context, refresh string) error {
+func (s *AuthService) Logout(ctx context.Context, refreshToken string) error {
 	claims := &auth.Claims{}
-	_, err := jwt.ParseWithClaims(refresh, claims,
+	_, err := jwt.ParseWithClaims(refreshToken, claims,
 		func(token *jwt.Token) (interface{}, error) {
 			return auth.JwtRefreshKey, nil
 		},
@@ -69,8 +69,7 @@ func (s *AuthService) Logout(ctx context.Context, refresh string) error {
 	if ttl <= 0 {
 		return nil
 	}
-
-	return s.revokedTokensCache.Set(ctx, "revoked:refresh:"+refresh, []byte("revoked"), ttl)
+	return s.revokedTokensCache.Set(ctx, refreshToken, []byte("revoked"), ttl)
 }
 
 func (s *AuthService) refreshTokens(ctx context.Context, userID *uuid.UUID, email *string, version *uint32) (access *string, refresh *string, err error) {
@@ -90,7 +89,7 @@ func (s *AuthService) refreshTokens(ctx context.Context, userID *uuid.UUID, emai
 }
 
 func (s *AuthService) Refresh(ctx context.Context, oldRefreshToken string) (access string, refresh string, err error) {
-	_, err = s.revokedTokensCache.Get(ctx, "revoked:refresh:"+oldRefreshToken)
+	_, err = s.revokedTokensCache.Get(ctx, oldRefreshToken)
 	if err == nil {
 		return "", "", errors.CreateTokenError("refresh token was revoked")
 	}

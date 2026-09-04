@@ -16,13 +16,13 @@ import (
 
 type AuthHandler struct {
 	storage  storage.AuthStorage
-	cache    cache.Cache
+	cache    cache.RevokedTokenCache
 	service  *service.AuthService
 	validate *validator.Validate
 	logger   *slog.Logger
 }
 
-func NewAuthHandler(storage storage.AuthStorage, logger *slog.Logger, cache cache.Cache) (*AuthHandler, error) {
+func NewAuthHandler(storage storage.AuthStorage, logger *slog.Logger, cache cache.RevokedTokenCache) (*AuthHandler, error) {
 	return &AuthHandler{
 		storage:  storage,
 		cache:    cache,
@@ -139,7 +139,7 @@ func (h *AuthHandler) HandleChangePassword() http.HandlerFunc {
 	}
 }
 
-func (h *AuthHandler) HandleSecre() http.HandlerFunc {
+func (h *AuthHandler) HandleSecure() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	}

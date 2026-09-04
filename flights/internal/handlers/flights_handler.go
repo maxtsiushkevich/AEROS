@@ -2,8 +2,9 @@ package handlers
 
 import (
 	"encoding/json"
-	"errors"
+	errors_pkg "errors"
 	"flights/internal/dto"
+	"flights/internal/errors"
 	"flights/internal/service"
 	"flights/internal/storage"
 	"flights/internal/utils"
@@ -136,6 +137,10 @@ func (h *FlightHandler) HandlePatchFlight() http.HandlerFunc {
 
 		// Add custrom error handling for not found case
 		if err != nil {
+			if errors_pkg.Is(err, errors.FlightNotFoundError) {
+				httperr.Write(w, http.StatusNotFound, fmt.Sprintf("Flight with id=%s not found", flight.ID))
+				return
+			}
 			httperr.Write(w, http.StatusInternalServerError, "Failed to update flight")
 			return
 		}
@@ -157,7 +162,7 @@ func (h *FlightHandler) HandleDeleteFlight() http.HandlerFunc {
 
 		err = h.service.DeleteFlight(ctx, id)
 		if err != nil {
-			if errors.Is(err, storage.ErrFlightNotFound) {
+			if errors_pkg.Is(err, errors.FlightNotFoundError) {
 				httperr.Write(w, http.StatusNotFound, fmt.Sprintf("Flight with id=%s not found", id))
 				return
 			}
