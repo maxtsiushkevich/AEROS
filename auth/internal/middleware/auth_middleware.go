@@ -1,8 +1,8 @@
 package middleware
 
 import (
-	"auth/internal/auth"
 	"auth/internal/storage"
+	"auth/pkg/auth"
 	"auth/rbac"
 	"context"
 	"fmt"
