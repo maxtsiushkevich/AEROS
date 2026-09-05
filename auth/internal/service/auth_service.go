@@ -2,6 +2,7 @@ package service
 
 import (
 	"auth/internal/cache"
+	"auth/internal/models"
 	"auth/internal/storage"
 	"auth/pkg/auth"
 	"auth/pkg/errors"
@@ -34,17 +35,17 @@ func (s *AuthService) Login(ctx context.Context, email *string, password *string
 
 	isValidPassword := auth.CheckPassword(*password, user.HashedPassword)
 	if !isValidPassword {
-		return nil, nil, errors.InvalidPasswordError("incorrect password")
+		return nil, nil, errors.InvalidPasswordError
 	}
 
 	accessToken, err := auth.GenerateAccessToken(&user.ID, &user.Email, &user.Version)
 	if err != nil {
-		return nil, nil, errors.CreateTokenError("failed to create access token")
+		return nil, nil, errors.NewCreateTokenError("failed to create access token")
 	}
 
 	refreshToken, err := auth.GenerateRefreshToken(&user.ID, &user.Email, &user.Version)
 	if err != nil {
-		return nil, nil, errors.CreateTokenError("failed to create refresh token")
+		return nil, nil, errors.NewCreateTokenError("failed to create refresh token")
 	}
 
 	access = &accessToken
@@ -62,7 +63,7 @@ func (s *AuthService) Logout(ctx context.Context, refreshToken string) error {
 		jwt.WithValidMethods([]string{"HS256"}),
 	)
 	if err != nil || claims.ExpiresAt == nil {
-		return errors.CreateTokenError("failed to parse refresh token")
+		return errors.NewCreateTokenError("failed to parse refresh token")
 	}
 
 	ttl := time.Until(claims.ExpiresAt.Time)
@@ -75,12 +76,12 @@ func (s *AuthService) Logout(ctx context.Context, refreshToken string) error {
 func (s *AuthService) refreshTokens(ctx context.Context, userID *uuid.UUID, email *string, version *uint32) (access *string, refresh *string, err error) {
 	newAccessToken, err := auth.GenerateAccessToken(userID, email, version)
 	if err != nil {
-		return nil, nil, errors.CreateTokenError("failed to create access token")
+		return nil, nil, errors.NewCreateTokenError("failed to create access token")
 	}
 
 	newRefreshToken, err := auth.GenerateRefreshToken(userID, email, version)
 	if err != nil {
-		return nil, nil, errors.CreateTokenError("failed to create refresh token")
+		return nil, nil, errors.NewCreateTokenError("failed to create refresh token")
 	}
 
 	access = &newAccessToken
@@ -91,7 +92,7 @@ func (s *AuthService) refreshTokens(ctx context.Context, userID *uuid.UUID, emai
 func (s *AuthService) Refresh(ctx context.Context, oldRefreshToken string) (access string, refresh string, err error) {
 	_, err = s.revokedTokensCache.Get(ctx, oldRefreshToken)
 	if err == nil {
-		return "", "", errors.CreateTokenError("refresh token was revoked")
+		return "", "", errors.NewCreateTokenError("refresh token was revoked")
 	}
 	if err != redis.Nil {
 		return "", "", errors.NewAuthError("CACHE_ERROR", fmt.Sprintf("failed to check refresh token: %v", err))
@@ -105,12 +106,12 @@ func (s *AuthService) Refresh(ctx context.Context, oldRefreshToken string) (acce
 		jwt.WithValidMethods([]string{"HS256"}),
 	)
 	if err != nil || !token.Valid || claims.Type != "refresh" {
-		return "", "", errors.CreateTokenError("invalid refresh token")
+		return "", "", errors.NewCreateTokenError("invalid refresh token")
 	}
 
 	user, err := s.storage.ReadByID(ctx, claims.Id)
 	if err != nil || user.Version != claims.Version {
-		return "", "", errors.CreateTokenError("invalid refresh token")
+		return "", "", errors.NewCreateTokenError("invalid refresh token")
 	}
 
 	newAccess, newRefresh, err := s.refreshTokens(ctx, &user.ID, &user.Email, &user.Version)
@@ -119,4 +120,38 @@ func (s *AuthService) Refresh(ctx context.Context, oldRefreshToken string) (acce
 	}
 
 	return *newAccess, *newRefresh, nil
+}
+
+func (s *AuthService) ChangePassword(ctx context.Context, userID *uuid.UUID, oldPassword *string, newPassword *string) (*models.UserAuth, error) {
+	user, err := s.storage.ReadByID(ctx, *userID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Check if the user password correct
+	if !auth.CheckPassword(*oldPassword, user.HashedPassword) {
+		return nil, errors.InvalidPasswordError
+	}
+
+	// Check if the new password is the same as the old password
+	if auth.CheckPassword(*newPassword, user.HashedPassword) {
+		return nil, errors.SamePasswordError
+	}
+
+	hashedPassword, err := auth.HashPassword(*newPassword)
+	if err != nil {
+		return nil, err
+	}
+
+	upd := models.UserAuthUpdate{
+		ID:                *userID,
+		NewHashedPassword: hashedPassword,
+	}
+
+	user, err = s.storage.Update(ctx, &upd)
+	if err != nil {
+		return nil, err
+	}
+
+	return user, nil
 }

@@ -11,16 +11,16 @@ import (
 	"github.com/maxtsiushkevich/AEROS/pkg/httperr"
 )
 
-func methodToAction(method string) rbac.Action {
+func methodToAction(method string) string {
 	switch method {
 	case http.MethodGet:
-		return rbac.Read
+		return "read"
 	case http.MethodPost, http.MethodPut, http.MethodPatch:
-		return rbac.Write
+		return "write"
 	case http.MethodDelete:
-		return rbac.Delete
+		return "delete"
 	default:
-		return rbac.Read
+		return "read"
 	}
 }
 
@@ -57,7 +57,6 @@ func AuthMiddleware(rbacService rbac.AuthorizationService, authStorage storage.A
 			}
 
 			// there is check if token in blacklist - if yes, return 401
-
 			claims, err := auth.ParseAccessToken(tokenString)
 			if err != nil {
 				fmt.Println("JWT parse error:", err)

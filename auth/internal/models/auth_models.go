@@ -2,19 +2,19 @@ package models
 
 import "github.com/google/uuid"
 
-type UserAuthData struct {
+type UserAuth struct {
 	ID             uuid.UUID `gorm:"type:uuid;primaryKey"`
 	Email          string    `gorm:"unique;not null"`
 	HashedPassword string    `gorm:"not null"`
 	Version        uint32    `gorm:"default:1"`
 }
 
-func (UserAuthData) TableName() string {
+func (UserAuth) TableName() string {
 	return "auth"
 }
 
-type UserAuthDataUpdate struct {
-	ID          uuid.UUID `json:"id" validate:"required"`
-	NewEmail    *string   `json:"email" validate:"omitnil,email"`
-	NewPassword *string   `json:"password" validate:"omitnil,min=8"`
+type UserAuthUpdate struct {
+	ID                uuid.UUID
+	NewEmail          string
+	NewHashedPassword string
 }

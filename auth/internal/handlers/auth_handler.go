@@ -3,6 +3,7 @@ package handlers
 import (
 	"auth/internal/cache"
 	"auth/internal/dto"
+	"auth/internal/middleware"
 	"auth/internal/service"
 	"auth/internal/storage"
 	authErrors "auth/pkg/errors"
@@ -121,6 +122,7 @@ func (h *AuthHandler) HandleLogout() http.HandlerFunc {
 		if err != nil {
 			httperr.Write(w, http.StatusInternalServerError, "Failed to logout")
 			h.logger.Error("Error", "err", err)
+			return
 		}
 
 		http.SetCookie(w, &http.Cookie{
@@ -135,12 +137,41 @@ func (h *AuthHandler) HandleLogout() http.HandlerFunc {
 
 func (h *AuthHandler) HandleChangePassword() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusOK)
-	}
-}
+		ctx := r.Context()
+		claims, ok := middleware.ClaimsFromContext(r.Context())
+		if !ok {
+			httperr.Write(w, http.StatusUnauthorized, "missing claims")
+			return
+		}
+		userID := claims.Id
 
-func (h *AuthHandler) HandleSecure() http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
+		req := &dto.PasswordUpdateRequest{}
+
+		if err := json.NewDecoder(r.Body).Decode(req); err != nil {
+			httperr.Write(w, http.StatusBadRequest, "Invalid JSON body")
+			return
+		}
+
+		err := h.validate.Struct(req)
+		if err != nil {
+			httperr.Write(w, http.StatusBadRequest, err.Error())
+			return
+		}
+		_, err = h.service.ChangePassword(ctx, &userID, req.OldPassword, req.NewPassword)
+		if err != nil {
+			switch err {
+			case authErrors.SamePasswordError:
+				httperr.Write(w, http.StatusBadRequest, err.Error())
+				return
+			case authErrors.InvalidPasswordError:
+				httperr.Write(w, http.StatusUnauthorized, err.Error())
+				return
+			default:
+				httperr.Write(w, http.StatusInternalServerError, err.Error())
+				return
+			}
+		}
+
 		w.WriteHeader(http.StatusOK)
 	}
 }

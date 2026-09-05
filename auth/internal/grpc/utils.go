@@ -18,7 +18,7 @@ type AddUserRequestValidate struct {
 	Password string `validate:"required,min=8"`
 }
 
-func getUserAuthData(req *auth.AddUserRequest) (*models.UserAuthData, error) {
+func getUserAuthData(req *auth.AddUserRequest) (*models.UserAuth, error) {
 	validate := validator.New()
 
 	val := AddUserRequestValidate{
@@ -41,7 +41,7 @@ func getUserAuthData(req *auth.AddUserRequest) (*models.UserAuthData, error) {
 
 	id, _ := uuid.Parse(req.Id)
 
-	return &models.UserAuthData{
+	return &models.UserAuth{
 		ID:             id,
 		Email:          val.Email,
 		HashedPassword: hashedPassword,

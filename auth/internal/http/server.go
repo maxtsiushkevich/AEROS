@@ -68,7 +68,5 @@ func (s *Server) configureRouter() {
 	s.router.HandleFunc("POST /api/v1/auth/login", mw.Apply(s.auth.HandleLogin()))
 	s.router.HandleFunc("POST /api/v1/auth/logout", mw.Apply(s.auth.HandleLogout()))
 	s.router.HandleFunc("POST /api/v1/auth/change-password", secure_mw.Apply(s.auth.HandleChangePassword()))
-	s.router.HandleFunc("GET /api/v1/secured", secure_mw.Apply(s.auth.HandleChangePassword()))
-
 	s.logger.Info("Router configured")
 }

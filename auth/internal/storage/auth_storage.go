@@ -19,10 +19,10 @@ import (
 type AuthStorage interface {
 	Open() error
 	Close() error
-	Create(ctx context.Context, user *models.UserAuthData) (*models.UserAuthData, error)
-	Read(ctx context.Context, email *string) (*models.UserAuthData, error)
-	ReadByID(ctx context.Context, id uuid.UUID) (*models.UserAuthData, error)
-	Update(ctx context.Context, user *models.UserAuthDataUpdate) (*models.UserAuthData, error)
+	Create(ctx context.Context, user *models.UserAuth) (*models.UserAuth, error)
+	Read(ctx context.Context, email *string) (*models.UserAuth, error)
+	ReadByID(ctx context.Context, id uuid.UUID) (*models.UserAuth, error)
+	Update(ctx context.Context, user *models.UserAuthUpdate) (*models.UserAuth, error)
 	Delete(ctx context.Context, id uuid.UUID) error
 }
 
@@ -74,13 +74,13 @@ func (s *AuthPostgresStorage) Close() error {
 	return nil
 }
 
-func (s *AuthPostgresStorage) Create(ctx context.Context, user *models.UserAuthData) (*models.UserAuthData, error) {
+func (s *AuthPostgresStorage) Create(ctx context.Context, user *models.UserAuth) (*models.UserAuth, error) {
 	err := s.db.WithContext(ctx).Create(user).Error
 	if err != nil {
 		errMsg := err.Error()
 		if strings.Contains(errMsg, "duplicate key") || strings.Contains(errMsg, "UNIQUE constraint") {
 			s.logger.Warn("User already exists", "id", user.ID, "email", user.Email)
-			return nil, errors.UserAlreadyExistsError(user.Email)
+			return nil, errors.UserAlreadyExistsError
 		}
 		s.logger.Error("Failed to create user", "email", user.Email, "err", err)
 		return nil, errors.NewAuthError("CREATE_FAILED", "failed to create user")
@@ -89,14 +89,14 @@ func (s *AuthPostgresStorage) Create(ctx context.Context, user *models.UserAuthD
 	return user, nil
 }
 
-func (s *AuthPostgresStorage) Read(ctx context.Context, email *string) (*models.UserAuthData, error) {
-	var authData models.UserAuthData
+func (s *AuthPostgresStorage) Read(ctx context.Context, email *string) (*models.UserAuth, error) {
+	var authData models.UserAuth
 	err := s.db.WithContext(ctx).Where("email = ?", email).First(&authData).Error
 
 	if err != nil {
 		if errors_pkg.Is(err, gorm.ErrRecordNotFound) {
 			s.logger.Warn("User not found", "email", email)
-			return nil, errors.UserNotFoundError(*email)
+			return nil, errors.UserNotFoundError
 		}
 		s.logger.Error("Failed to read user", "email", email, "err", err)
 		return nil, errors.NewAuthError("READ_FAILED", "failed to read user")
@@ -105,8 +105,8 @@ func (s *AuthPostgresStorage) Read(ctx context.Context, email *string) (*models.
 	return &authData, nil
 }
 
-func (s *AuthPostgresStorage) ReadByID(ctx context.Context, id uuid.UUID) (*models.UserAuthData, error) {
-	var authData models.UserAuthData
+func (s *AuthPostgresStorage) ReadByID(ctx context.Context, id uuid.UUID) (*models.UserAuth, error) {
+	var authData models.UserAuth
 	err := s.db.WithContext(ctx).Where("id = ?", id).First(&authData).Error
 	if err != nil {
 		if errors_pkg.Is(err, gorm.ErrRecordNotFound) {
@@ -118,8 +118,8 @@ func (s *AuthPostgresStorage) ReadByID(ctx context.Context, id uuid.UUID) (*mode
 	return &authData, nil
 }
 
-func (s *AuthPostgresStorage) Update(ctx context.Context, update *models.UserAuthDataUpdate) (*models.UserAuthData, error) {
-	var existing models.UserAuthData
+func (s *AuthPostgresStorage) Update(ctx context.Context, update *models.UserAuthUpdate) (*models.UserAuth, error) {
+	var existing models.UserAuth
 
 	err := s.db.WithContext(ctx).Where("id = ?", update.ID).First(&existing).Error
 	if err != nil {
@@ -131,11 +131,11 @@ func (s *AuthPostgresStorage) Update(ctx context.Context, update *models.UserAut
 		return nil, errors.NewAuthError("UPDATE_FAILED", "failed to fetch user for update")
 	}
 
-	if update.NewEmail != nil {
-		existing.Email = *update.NewEmail
+	if update.NewEmail != "" {
+		existing.Email = update.NewEmail
 	}
-	if update.NewHashedPassword != nil {
-		existing.HashedPassword = *update.NewHashedPassword
+	if update.NewHashedPassword != "" {
+		existing.HashedPassword = update.NewHashedPassword
 	}
 
 	existing.Version++
@@ -149,7 +149,7 @@ func (s *AuthPostgresStorage) Update(ctx context.Context, update *models.UserAut
 }
 
 func (s *AuthPostgresStorage) Delete(ctx context.Context, id uuid.UUID) error {
-	err := s.db.WithContext(ctx).Where("id = ?", id).Delete(&models.UserAuthData{}).Error
+	err := s.db.WithContext(ctx).Where("id = ?", id).Delete(&models.UserAuth{}).Error
 	if err != nil {
 		s.logger.Error("Failed to delete user", "id", id, "err", err)
 		return errors.NewAuthError("DELETE_FAILED", "failed to delete user")

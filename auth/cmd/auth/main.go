@@ -58,7 +58,7 @@ func main() {
 	}()
 
 	// Setup RBAC service
-	rbacService := rbac.NewCasbinService(&cfg.Casbin.ConfigPath, logger)
+	rbacService := rbac.NewRBACService(&cfg.Casbin.ConfigPath, logger)
 
 	// Create HTTP server
 	server := http.CreateServer(&cfg, logger, rbacService, db, cache)
