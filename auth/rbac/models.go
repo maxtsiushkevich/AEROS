@@ -7,51 +7,80 @@ import (
 )
 
 type Role struct {
-	ID          uint   `gorm:"primaryKey"`
-	Name        string `gorm:"uniqueIndex"`
+	Name        string `gorm:"primaryKey"`
 	Description string
 	CreatedAt   time.Time
 	UpdatedAt   time.Time
 }
 
 type Action struct {
-	ID   uint   `gorm:"primaryKey"`
-	Name string `gorm:"uniqueIndex"`
+	Name string `gorm:"primaryKey"`
 }
 
 type Resource struct {
-	ID          uint   `gorm:"primaryKey"`
-	Name        string `gorm:"uniqueIndex"`
+	Name        string `gorm:"primaryKey"`
 	Description string
 }
 
 type Permission struct {
-	ID         uint      `gorm:"primaryKey"`
-	ResourceID uint      `gorm:"uniqueIndex:idx_resource_action"`
-	ActionID   uint      `gorm:"uniqueIndex:idx_resource_action"`
-	Resource   *Resource `gorm:"foreignKey:ResourceID;OnDelete:CASCADE"`
-	Action     *Action   `gorm:"foreignKey:ActionID;OnDelete:CASCADE"`
+	ResourceName string    `gorm:"primaryKey;column:resource_name"`
+	ActionName   string    `gorm:"primaryKey;column:action_name"`
+	Resource     *Resource `gorm:"foreignKey:ResourceName;OnDelete:CASCADE"`
+	Action       *Action   `gorm:"foreignKey:ActionName;OnDelete:CASCADE"`
 }
 
 type RolePermission struct {
-	RoleID       uint
-	PermissionID uint
-	Role         *Role       `gorm:"foreignKey:RoleID;primaryKey;OnDelete:CASCADE"`
-	Permission   *Permission `gorm:"foreignKey:PermissionID;primaryKey;OnDelete:CASCADE"`
+	RoleName     string      `gorm:"primaryKey"`
+	ResourceName string      `gorm:"primaryKey"`
+	ActionName   string      `gorm:"primaryKey"`
+	Role         *Role       `gorm:"foreignKey:RoleName;OnDelete:CASCADE"`
+	Permission   *Permission `gorm:"foreignKey:ResourceName,ActionName;OnDelete:CASCADE"`
 }
 
 type UserRole struct {
-	UserID uuid.UUID
-	RoleID uint
-	Role   *Role `gorm:"foreignKey:RoleID;primaryKey;OnDelete:CASCADE"`
+	UserID   uuid.UUID `gorm:"primaryKey"`
+	RoleName string    `gorm:"primaryKey"`
+	Role     *Role     `gorm:"foreignKey:RoleName;OnDelete:CASCADE"`
 }
 
-// DTO
+// DTOs
+type CreateRoleRequest struct {
+	Name        string `json:"name" binding:"required"`
+	Description string `json:"description"`
+}
+
+type CreateActionRequest struct {
+	Name string `json:"name" binding:"required"`
+}
+
+type CreateResourceRequest struct {
+	Name        string `json:"name" binding:"required"`
+	Description string `json:"description"`
+}
+
 type CreatePermissionRequest struct {
-	ResourceID uint `json:"resource_id" binding:"required"`
-	ActionID   uint `json:"action_id" binding:"required"`
+	ResourceName string `json:"resource_name" binding:"required"`
+	ActionName   string `json:"action_name" binding:"required"`
 }
 
 type GrantPermissionRequest struct {
-	PermissionID uint `json:"permission_id" binding:"required"`
+	RoleName     string `json:"role_name" binding:"required"`
+	ResourceName string `json:"resource_name" binding:"required"`
+	ActionName   string `json:"action_name" binding:"required"`
+}
+
+type RevokePermissionRequest struct {
+	RoleName     string `json:"role_name" binding:"required"`
+	ResourceName string `json:"resource_name" binding:"required"`
+	ActionName   string `json:"action_name" binding:"required"`
+}
+
+type AssignRoleRequest struct {
+	UserID   uuid.UUID `json:"user_id" binding:"required"`
+	RoleName string    `json:"role_name" binding:"required"`
+}
+
+type RemoveRoleRequest struct {
+	UserID   uuid.UUID `json:"user_id" binding:"required"`
+	RoleName string    `json:"role_name" binding:"required"`
 }

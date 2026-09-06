@@ -59,6 +59,13 @@ func main() {
 
 	// Setup RBAC service
 	rbacService := rbac.NewRBACService(&cfg.Casbin.ConfigPath, logger)
+	// rbacService.CreateRole("user", "user")
+	// rbacService.CreateResource("/api/v1/auth/change-password", "Change password")
+	// rbacService.CreateAction("write")
+	// rbacService.CreatePermission("/api/v1/auth/change-password", "write")
+	// rbacService.GrantPermissionToRole("user", "/api/v1/auth/change-password", "write")
+	// id, _ := uuid.Parse("123e4567-e89b-12d3-a456-426614174000")
+	// rbacService.AssignRoleToUser(id, "user")
 
 	// Create HTTP server
 	server := http.CreateServer(&cfg, logger, rbacService, db, cache)

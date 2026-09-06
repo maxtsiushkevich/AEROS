@@ -6,12 +6,12 @@ import (
 
 func (r *CreateFlightRequest) ToServiceFlight() *models.Flight {
 	return &models.Flight{
-		FlightNumber: *r.FlightNumber,
-		Origin:       *(r.Origin),
-		Destination:  *r.Destination,
-		Date:         *r.Date,
-		Status:       models.Status(*r.Status),
-		Aircraft:     *r.Aircraft,
+		FlightNumber: r.FlightNumber,
+		Origin:       (r.Origin),
+		Destination:  r.Destination,
+		Date:         r.Date,
+		Status:       models.Status(r.Status),
+		Aircraft:     r.Aircraft,
 	}
 }
 

@@ -157,7 +157,7 @@ func (h *AuthHandler) HandleChangePassword() http.HandlerFunc {
 			httperr.Write(w, http.StatusBadRequest, err.Error())
 			return
 		}
-		_, err = h.service.ChangePassword(ctx, &userID, req.OldPassword, req.NewPassword)
+		_, err = h.service.ChangePassword(ctx, &userID, &req.OldPassword, &req.NewPassword)
 		if err != nil {
 			switch err {
 			case authErrors.SamePasswordError:

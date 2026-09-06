@@ -99,19 +99,19 @@ func (s *FlightsPostgresStorage) Read(ctx context.Context, filter *models.Flight
 		filter = &models.FlightQuery{}
 	}
 
-	if filter.FlightNumber != "" {
+	if filter.FlightNumber != nil {
 		query = query.Where("flight_number = ?", filter.FlightNumber)
 	}
 
-	if filter.Origin != "" {
+	if filter.Origin != nil {
 		query = query.Where("origin = ?", filter.Origin)
 	}
 
-	if filter.Destination != "" {
+	if filter.Destination != nil {
 		query = query.Where("destination = ?", filter.Destination)
 	}
 
-	if filter.Status != "" {
+	if filter.Status != nil {
 		query = query.Where("status = ?", filter.Status)
 	}
 

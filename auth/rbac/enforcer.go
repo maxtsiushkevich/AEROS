@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"log"
 	"log/slog"
-	"strconv"
 
 	"github.com/casbin/casbin/v3"
 	gormadapter "github.com/casbin/gorm-adapter/v3"
@@ -17,14 +16,14 @@ type AuthorizationService interface {
 	AddUserToRbac(id uuid.UUID)
 	IsAuthenticated(sub string, obj string, act string) (bool, error)
 	CreateRole(name, description string) (*Role, error)
-	DeleteRole(roleID uint) error
+	DeleteRole(roleName string) error
 	CreateAction(name string) (*Action, error)
 	CreateResource(name, description string) (*Resource, error)
-	CreatePermission(resourceID, actionID uint) (*Permission, error)
-	GrantPermissionToRole(roleID, permissionID uint) error
-	RevokePermissionFromRole(roleID, permissionID uint) error
-	AssignRoleToUser(userID uuid.UUID, roleID uint) error
-	RemoveRoleFromUser(userID uuid.UUID, roleID uint) error
+	CreatePermission(resourceName, actionName string) (*Permission, error)
+	GrantPermissionToRole(roleName, resourceName, actionName string) error
+	RevokePermissionFromRole(roleName, resourceName, actionName string) error
+	AssignRoleToUser(userID uuid.UUID, roleName string) error
+	RemoveRoleFromUser(userID uuid.UUID, roleName string) error
 }
 
 type RBACService struct {
@@ -65,16 +64,16 @@ func NewRBACService(configPath *string, logger *slog.Logger) *RBACService {
 		log.Fatal(err)
 	}
 
-	// if err := db.AutoMigrate(
-	// 	&Role{},
-	// 	&Action{},
-	// 	&Resource{},
-	// 	&Permission{},
-	// 	&RolePermission{},
-	// 	&UserRole{},
-	// ); err != nil {
-	// 	log.Fatal(err)
-	// }
+	if err := db.AutoMigrate(
+		&Role{},
+		&Action{},
+		&Resource{},
+		&Permission{},
+		&RolePermission{},
+		&UserRole{},
+	); err != nil {
+		log.Fatal(err)
+	}
 
 	return &RBACService{
 		db:       db,
@@ -95,7 +94,7 @@ func (cs *RBACService) IsAuthenticated(sub string, obj string, act string) (bool
 }
 
 func (cs *RBACService) AddUserToRbac(id uuid.UUID) {
-	cs.enforcer.AddGroupingPolicy(id.String(), "User")
+	cs.AssignRoleToUser(id, "user")
 }
 
 func (s *RBACService) CreateRole(name, description string) (*Role, error) {
@@ -111,19 +110,19 @@ func (s *RBACService) CreateRole(name, description string) (*Role, error) {
 	return role, nil
 }
 
-func (s *RBACService) DeleteRole(roleID uint) error {
-	// Delete role permissions
-	if err := s.db.Delete(&RolePermission{}, "role_id = ?", roleID).Error; err != nil {
-		return err
+func (s *RBACService) DeleteRole(roleName string) error {
+	// Delete RolePermission
+	if err := s.db.Delete(&RolePermission{}, "role_name = ?", roleName).Error; err != nil {
+		return fmt.Errorf("failed to delete role permissions: %w", err)
 	}
 
-	// Delete role
-	if err := s.db.Delete(&Role{}, "id = ?", roleID).Error; err != nil {
-		return err
+	// Delete Role
+	if err := s.db.Delete(&Role{}, "name = ?", roleName).Error; err != nil {
+		return fmt.Errorf("failed to delete role: %w", err)
 	}
 
 	// Update Casbin policies
-	s.enforcer.RemoveFilteredPolicy(0, strconv.FormatUint(uint64(roleID), 10))
+	s.enforcer.RemoveFilteredPolicy(0, roleName)
 	s.enforcer.SavePolicy()
 
 	return nil
@@ -135,7 +134,7 @@ func (s *RBACService) CreateAction(name string) (*Action, error) {
 	}
 
 	if err := s.db.Create(action).Error; err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to create action: %w", err)
 	}
 
 	return action, nil
@@ -148,96 +147,108 @@ func (s *RBACService) CreateResource(name, description string) (*Resource, error
 	}
 
 	if err := s.db.Create(resource).Error; err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to create resource: %w", err)
 	}
 
 	return resource, nil
 }
 
-func (s *RBACService) CreatePermission(resourceID, actionID uint) (*Permission, error) {
+func (s *RBACService) CreatePermission(resourceName, actionName string) (*Permission, error) {
+	var resource Resource
+	if err := s.db.First(&resource, "name = ?", resourceName).Error; err != nil {
+		return nil, fmt.Errorf("resource not found: %w", err)
+	}
+
+	var action Action
+	if err := s.db.First(&action, "name = ?", actionName).Error; err != nil {
+		return nil, fmt.Errorf("action not found: %w", err)
+	}
+
 	perm := &Permission{
-		ResourceID: resourceID,
-		ActionID:   actionID,
+		ResourceName: resourceName,
+		ActionName:   actionName,
 	}
 
 	if err := s.db.Create(perm).Error; err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to create permission: %w", err)
 	}
 
 	return perm, nil
 }
 
-func (s *RBACService) GrantPermissionToRole(roleID, permissionID uint) error {
+func (s *RBACService) GrantPermissionToRole(roleName, resourceName, actionName string) error {
+	var role Role
+	if err := s.db.First(&role, "name = ?", roleName).Error; err != nil {
+		return fmt.Errorf("role not found: %w", err)
+	}
+
 	var perm Permission
-	if err := s.db.First(&perm, "id = ?", permissionID).Error; err != nil {
+	if err := s.db.First(&perm, "resource_name = ? AND action_name = ?", resourceName, actionName).Error; err != nil {
 		return fmt.Errorf("permission not found: %w", err)
 	}
 
 	rp := &RolePermission{
-		RoleID:       roleID,
-		PermissionID: permissionID,
+		RoleName:     roleName,
+		ResourceName: resourceName,
+		ActionName:   actionName,
 	}
 
 	if err := s.db.Create(rp).Error; err != nil {
-		return err
+		return fmt.Errorf("failed to grant permission to role: %w", err)
 	}
 
-	// Add to Casbin: sub, obj, act
-	s.enforcer.AddPolicy(
-		strconv.FormatUint(uint64(roleID), 10),
-		strconv.FormatUint(uint64(perm.ResourceID), 10),
-		strconv.FormatUint(uint64(perm.ActionID), 10),
-	)
+	s.enforcer.AddPolicy(roleName, resourceName, actionName)
 	s.enforcer.SavePolicy()
 
 	return nil
 }
 
-func (s *RBACService) RevokePermissionFromRole(roleID, permissionID uint) error {
+func (s *RBACService) RevokePermissionFromRole(roleName, resourceName, actionName string) error {
 	var perm Permission
-	if err := s.db.First(&perm, "id = ?", permissionID).Error; err != nil {
-		return err
-	}
-	if err := s.db.Delete(&RolePermission{},
-		"role_id = ? AND permission_id = ?", roleID, permissionID).Error; err != nil {
-		return err
+	if err := s.db.First(&perm, "resource_name = ? AND action_name = ?", resourceName, actionName).Error; err != nil {
+		return fmt.Errorf("permission not found: %w", err)
 	}
 
-	// Delete from Casbin
-	s.enforcer.RemovePolicy(
-		strconv.FormatUint(uint64(roleID), 10),
-		strconv.FormatUint(uint64(perm.ResourceID), 10),
-		strconv.FormatUint(uint64(perm.ActionID), 10),
-	)
+	if err := s.db.Delete(&RolePermission{},
+		"role_name = ? AND resource_name = ? AND action_name = ?",
+		roleName, resourceName, actionName).Error; err != nil {
+		return fmt.Errorf("failed to revoke permission: %w", err)
+	}
+
+	s.enforcer.RemovePolicy(roleName, resourceName, actionName)
 	s.enforcer.SavePolicy()
 
 	return nil
 }
 
-func (s *RBACService) AssignRoleToUser(userID uuid.UUID, roleID uint) error {
+func (s *RBACService) AssignRoleToUser(userID uuid.UUID, roleName string) error {
+	var role Role
+	if err := s.db.First(&role, "name = ?", roleName).Error; err != nil {
+		return fmt.Errorf("role not found: %w", err)
+	}
+
 	ur := &UserRole{
-		UserID: userID,
-		RoleID: roleID,
+		UserID:   userID,
+		RoleName: roleName,
 	}
 
 	if err := s.db.Create(ur).Error; err != nil {
-		return err
+		return fmt.Errorf("failed to assign role to user: %w", err)
 	}
 
-	// user_id has role_id
-	s.enforcer.AddGroupingPolicy(userID.String(), strconv.FormatUint(uint64(roleID), 10))
+	s.enforcer.AddGroupingPolicy(userID.String(), roleName)
 	s.enforcer.SavePolicy()
 
 	return nil
 }
 
-func (s *RBACService) RemoveRoleFromUser(userID uuid.UUID, roleID uint) error {
+func (s *RBACService) RemoveRoleFromUser(userID uuid.UUID, roleName string) error {
 	if err := s.db.Delete(&UserRole{},
-		"user_id = ? AND role_id = ?", userID, roleID).Error; err != nil {
-		return err
+		"user_id = ? AND role_name = ?", userID, roleName).Error; err != nil {
+		return fmt.Errorf("failed to remove role from user: %w", err)
 	}
 
-	s.enforcer.RemoveGroupingPolicy(userID.String(), strconv.FormatUint(uint64(roleID), 10))
+	s.enforcer.RemoveGroupingPolicy(userID.String(), roleName)
 	s.enforcer.SavePolicy()
 
 	return nil

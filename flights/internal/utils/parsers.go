@@ -6,6 +6,14 @@ import (
 	"time"
 )
 
+func getStringOrNil(queryParams url.Values, key string) *string {
+	value := queryParams.Get(key)
+	if value == "" {
+		return nil
+	}
+	return &value
+}
+
 // ParseGetFlightsQuery converts URL query parameters to GetFlightsRequestQuery
 func ParseGetFlightsQuery(queryParams url.Values) (*dto.GetFlightsRequestQuery, error) {
 	dateFrom, err := parseDate(queryParams.Get("date_from"))
@@ -19,10 +27,10 @@ func ParseGetFlightsQuery(queryParams url.Values) (*dto.GetFlightsRequestQuery, 
 	}
 
 	return &dto.GetFlightsRequestQuery{
-		FlightNumber: queryParams.Get("flight_number"),
-		Origin:       queryParams.Get("origin"),
-		Destination:  queryParams.Get("destination"),
-		Status:       queryParams.Get("status"),
+		FlightNumber: getStringOrNil(queryParams, "flight_number"),
+		Origin:       getStringOrNil(queryParams, "origin"),
+		Destination:  getStringOrNil(queryParams, "destination"),
+		Status:       getStringOrNil(queryParams, "status"),
 		DateFrom:     dateFrom,
 		DateTo:       dateTo,
 	}, nil

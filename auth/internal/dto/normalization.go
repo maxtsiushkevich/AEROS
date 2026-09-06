@@ -7,14 +7,6 @@ func (r *AuthRequest) Normalize() {
 }
 
 func (r *PasswordUpdateRequest) Normalize() {
-	r.OldPassword = trim(r.OldPassword)
-	r.NewPassword = trim(r.NewPassword)
-}
-
-func trim(s *string) *string {
-	if s == nil {
-		return nil
-	}
-	res := strings.TrimSpace(*s)
-	return &res
+	r.OldPassword = strings.TrimSpace(r.OldPassword)
+	r.NewPassword = strings.TrimSpace(r.NewPassword)
 }

@@ -7,21 +7,21 @@ import (
 )
 
 type GetFlightsRequestQuery struct {
-	FlightNumber string `validate:"max=8"`
-	Origin       string `validate:"omitempty,max=3,alpha"`
-	Destination  string `validate:"omitempty,max=3,alpha"`
-	Status       string `validate:"omitempty,oneof=Scheduled CheckIn Boarding Delayed Departed Arrived Cancelled Redirected"`
+	FlightNumber *string `validate:"omitempty,max=8"`
+	Origin       *string `validate:"omitempty,max=3,alpha"`
+	Destination  *string `validate:"omitempty,max=3,alpha"`
+	Status       *string `validate:"omitempty,oneof=Scheduled CheckIn Boarding Delayed Departed Arrived Cancelled Redirected"`
 	DateFrom     *time.Time
 	DateTo       *time.Time
 }
 
 type CreateFlightRequest struct {
-	FlightNumber *string    `json:"flight_number" validate:"required,max=8"`
-	Origin       *string    `json:"origin" validate:"required,len=3,alpha"`
-	Destination  *string    `json:"destination" validate:"required,len=3,alpha"`
-	Date         *time.Time `json:"date" validate:"required,gt=now"`
-	Status       *string    `json:"status,omitempty" validate:"omitempty,oneof=Scheduled CheckIn Boarding Delayed Departed Arrived Cancelled Redirected"`
-	Aircraft     *string    `json:"aircraft" validate:"required,gt=0"`
+	FlightNumber string    `json:"flight_number" validate:"required,max=8"`
+	Origin       string    `json:"origin" validate:"required,len=3,alpha"`
+	Destination  string    `json:"destination" validate:"required,len=3,alpha"`
+	Date         time.Time `json:"date" validate:"required,gt=now"`
+	Status       string    `json:"status,omitempty" validate:"omitempty,oneof=Scheduled CheckIn Boarding Delayed Departed Arrived Cancelled Redirected"`
+	Aircraft     string    `json:"aircraft" validate:"required,gt=0"`
 }
 
 type PatchFlightRequest struct {
