@@ -4,11 +4,11 @@ import (
 	authGrpc "auth/api/proto"
 	"auth/internal/config"
 	"auth/internal/storage"
-	"auth/rbac"
 	"context"
 	"log"
 	"log/slog"
 	"net"
+	"rbac"
 
 	"google.golang.org/grpc"
 )

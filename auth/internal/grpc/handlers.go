@@ -2,9 +2,9 @@ package grpc
 
 import (
 	grpc "auth/api/proto"
-	auth "auth/pkg/auth"
 	"auth/pkg/errors"
 	"context"
+	"pkg/auth"
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"

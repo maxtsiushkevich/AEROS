@@ -4,13 +4,15 @@ import (
 	"auth/internal/cache"
 	"auth/internal/config"
 	"auth/internal/handlers"
-	"auth/internal/middleware"
 	"auth/internal/storage"
-	"auth/rbac"
+	"context"
 	"log/slog"
 	"net/http"
+	"pkg/middleware"
+	"rbac"
 
 	"github.com/go-playground/validator/v10"
+	"github.com/google/uuid"
 )
 
 type Server struct {
@@ -61,7 +63,13 @@ func (s *Server) configureRouter() {
 
 	secure_mw := middleware.MiddlewareGroup{
 		middleware.LoggingMiddleware(s.logger),
-		middleware.AuthMiddleware(s.rbacService, s.storage),
+		middleware.AuthMiddleware(s.rbacService, func(ctx context.Context, id uuid.UUID) (uint32, error) {
+			user, err := s.storage.ReadByID(ctx, id)
+			if err != nil {
+				return 0, err
+			}
+			return user.Version, nil
+		}),
 	}
 
 	s.router.HandleFunc("POST /api/v1/auth/refresh", mw.Apply(s.auth.HandleRefreshTokens()))

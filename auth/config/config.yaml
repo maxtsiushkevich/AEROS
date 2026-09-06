@@ -15,7 +15,7 @@ grpc_server:
     address: localhost:50051
 
 casbin:
-    config_path: .\rbac\config.yaml
+    config_path: ..\rbac\config.yaml
 
 redis:
     address: localhost:6379

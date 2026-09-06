@@ -4,10 +4,10 @@ import (
 	"auth/internal/cache"
 	"auth/internal/models"
 	"auth/internal/storage"
-	"auth/pkg/auth"
 	"auth/pkg/errors"
 	"context"
 	"fmt"
+	"pkg/auth"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"

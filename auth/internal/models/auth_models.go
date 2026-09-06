@@ -9,6 +9,10 @@ type UserAuth struct {
 	Version        uint32    `gorm:"default:1"`
 }
 
+func (u *UserAuth) GetVersion() uint32 {
+	return u.Version
+}
+
 func (UserAuth) TableName() string {
 	return "auth"
 }

@@ -7,7 +7,8 @@ import (
 	"log/slog"
 	"net/http"
 
-	"flights/internal/middleware"
+	"pkg/middleware"
+
 	"github.com/go-playground/validator/v10"
 )
 
@@ -48,13 +49,7 @@ func (s *Server) Start() error {
 	s.logger.Info("Start server", "env", s.config.Env)
 	s.logger.Debug("Serve on", "addr", "http://"+s.config.HTTPServer.Address)
 
-	handler := middleware.CORS(middleware.CORSConfig{
-		AllowedOrigins: []string{"*"},
-		AllowedMethods: []string{"GET", "POST", "PATCH", "DELETE", "OPTIONS"},
-		AllowedHeaders: []string{"Content-Type", "Authorization"},
-	})(s.router.ServeHTTP)
-
-	return http.ListenAndServe(s.config.HTTPServer.Address, handler)
+	return http.ListenAndServe(s.config.HTTPServer.Address, s.router)
 }
 
 func (s *Server) configureRouter() {

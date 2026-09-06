@@ -6,11 +6,11 @@ import (
 	"auth/internal/grpc"
 	"auth/internal/http"
 	"auth/internal/storage"
-	"auth/rbac"
 	"context"
 	"flag"
 	"fmt"
 	"os"
+	"rbac"
 )
 
 var configPath = flag.String("config", "config/config.yaml", "Path to configuration file")

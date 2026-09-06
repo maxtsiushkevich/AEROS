@@ -3,16 +3,17 @@ package handlers
 import (
 	"auth/internal/cache"
 	"auth/internal/dto"
-	"auth/internal/middleware"
 	"auth/internal/service"
 	"auth/internal/storage"
 	authErrors "auth/pkg/errors"
 	"encoding/json"
 	"log/slog"
 	"net/http"
+	"pkg/middleware"
+
+	"pkg/httperr"
 
 	"github.com/go-playground/validator/v10"
-	"github.com/maxtsiushkevich/AEROS/pkg/httperr"
 )
 
 type AuthHandler struct {
