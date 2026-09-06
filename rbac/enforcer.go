@@ -12,8 +12,10 @@ import (
 	"gorm.io/gorm"
 )
 
+var rbacService = NewRBACService()
+
 type AuthorizationService interface {
-	AddUserToRbac(id uuid.UUID)
+	// AddUserToRbac(id uuid.UUID)
 	IsAuthenticated(sub string, obj string, act string) (bool, error)
 	CreateRole(name, description string) (*Role, error)
 	DeleteRole(roleName string) error
@@ -29,11 +31,14 @@ type AuthorizationService interface {
 type RBACService struct {
 	db       *gorm.DB
 	enforcer *casbin.Enforcer
-	logger   *slog.Logger
 }
 
-func NewRBACService(configPath *string, logger *slog.Logger) *RBACService {
-	cfg, err := LoadConfig(*configPath)
+func AddUserToRbac(id uuid.UUID) {
+	rbacService.AssignRoleToUser(id, "user")
+}
+
+func NewRBACService() *RBACService {
+	cfg, err := LoadConfig("../rbac/config.yaml")
 	if err != nil {
 		log.Fatal("Failed to load config:", err)
 	}
@@ -78,23 +83,18 @@ func NewRBACService(configPath *string, logger *slog.Logger) *RBACService {
 	return &RBACService{
 		db:       db,
 		enforcer: e,
-		logger:   logger,
 	}
 }
 
 func (cs *RBACService) IsAuthenticated(sub string, obj string, act string) (bool, error) {
 	ok, reason, err := cs.enforcer.EnforceEx(sub, obj, act)
 	if err != nil {
-		cs.logger.Error("Error occurred while enforcing policy", "err", err)
+		slog.Error("Error occurred while enforcing policy", "err", err)
 		return ok, err
 	}
 
-	cs.logger.Debug("Enforce result", "sub", sub, "obj", obj, "act", act, "ok", ok, "reason", reason)
+	slog.Debug("Enforce result", "sub", sub, "obj", obj, "act", act, "ok", ok, "reason", reason)
 	return ok, nil
-}
-
-func (cs *RBACService) AddUserToRbac(id uuid.UUID) {
-	cs.AssignRoleToUser(id, "user")
 }
 
 func (s *RBACService) CreateRole(name, description string) (*Role, error) {

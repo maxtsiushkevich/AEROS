@@ -10,7 +10,6 @@ import (
 	"flag"
 	"fmt"
 	"os"
-	"rbac"
 )
 
 var configPath = flag.String("config", "config/config.yaml", "Path to configuration file")
@@ -58,7 +57,7 @@ func main() {
 	}()
 
 	// Setup RBAC service
-	rbacService := rbac.NewRBACService(&cfg.Casbin.ConfigPath, logger)
+	// rbacService := rbac.NewRBACService(&cfg.Casbin.ConfigPath, logger)
 	// rbacService.CreateRole("user", "user")
 	// rbacService.CreateResource("/api/v1/auth/change-password", "Change password")
 	// rbacService.CreateAction("write")
@@ -68,10 +67,10 @@ func main() {
 	// rbacService.AssignRoleToUser(id, "user")
 
 	// Create HTTP server
-	server := http.CreateServer(&cfg, logger, rbacService, db, cache)
+	server := http.CreateServer(&cfg, logger, db, cache)
 
 	// Start gRPC server
-	go grpc.StartGPRCServer(context.Background(), &cfg, logger, rbacService, db)
+	go grpc.StartGPRCServer(context.Background(), &cfg, logger, db)
 
 	// Init server
 	if err := server.Start(); err != nil {

@@ -1,4 +1,4 @@
-package middleware
+package rbac
 
 import (
 	"context"
@@ -6,7 +6,6 @@ import (
 	"net/http"
 	"pkg/auth"
 	"pkg/httperr"
-	"rbac"
 
 	"github.com/google/uuid"
 )
@@ -27,8 +26,6 @@ func methodToAction(method string) string {
 type contextKey string
 
 const claimsContextKey contextKey = "auth_claims"
-
-// var rbacService = rbac.NewRBACService(&cfg.Casbin.ConfigPath, logger)
 
 func WithClaims(ctx context.Context, claims *auth.Claims) context.Context {
 	return context.WithValue(ctx, claimsContextKey, claims)
@@ -51,7 +48,7 @@ func ClaimsFromContext(ctx context.Context) (*auth.Claims, bool) {
 
 type UserVersionResolver func(ctx context.Context, id uuid.UUID) (uint32, error)
 
-func AuthMiddleware(rbacService rbac.AuthorizationService, resolveUserVersion UserVersionResolver) func(http.HandlerFunc) http.HandlerFunc {
+func AuthMiddleware(resolveUserVersion UserVersionResolver) func(http.HandlerFunc) http.HandlerFunc {
 	return func(next http.HandlerFunc) http.HandlerFunc {
 		return func(w http.ResponseWriter, r *http.Request) {
 			tokenString := auth.TokenFromRequest(r)

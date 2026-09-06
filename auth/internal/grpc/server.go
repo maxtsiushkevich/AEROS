@@ -8,35 +8,32 @@ import (
 	"log"
 	"log/slog"
 	"net"
-	"rbac"
 
 	"google.golang.org/grpc"
 )
 
 type Auth struct {
 	authGrpc.UnimplementedAuthServer
-	config      *config.Config
-	storage     storage.AuthStorage
-	logger      *slog.Logger
-	rbacService rbac.AuthorizationService
+	config  *config.Config
+	storage storage.AuthStorage
+	logger  *slog.Logger
 }
 
-func NewGRPCServer(cfg *config.Config, logger *slog.Logger, rbac rbac.AuthorizationService, db storage.AuthStorage) *Auth {
+func NewGRPCServer(cfg *config.Config, logger *slog.Logger, db storage.AuthStorage) *Auth {
 	return &Auth{
-		config:      cfg,
-		storage:     db,
-		logger:      logger,
-		rbacService: rbac,
+		config:  cfg,
+		storage: db,
+		logger:  logger,
 	}
 }
 
-func StartGPRCServer(ctx context.Context, config *config.Config, logger *slog.Logger, rbac rbac.AuthorizationService, db storage.AuthStorage) {
+func StartGPRCServer(ctx context.Context, config *config.Config, logger *slog.Logger, db storage.AuthStorage) {
 	lis, err := net.Listen("tcp", config.GRPCServer.Address)
 	if err != nil {
 		log.Fatalf("Error creating port listener %s: %v", config.GRPCServer.Address, err)
 	}
 
-	auth := NewGRPCServer(config, logger, rbac, db)
+	auth := NewGRPCServer(config, logger, db)
 
 	grpcServer := grpc.NewServer()
 
