@@ -6,8 +6,6 @@ import (
 	"net/http"
 	"pkg/auth"
 	"pkg/httperr"
-
-	"github.com/google/uuid"
 )
 
 func methodToAction(method string) string {
@@ -36,13 +34,11 @@ func ClaimsFromContext(ctx context.Context) (*auth.Claims, bool) {
 	return claims, ok
 }
 
-type UserVersionResolver func(ctx context.Context, id uuid.UUID) (uint32, error)
-
 type AuthorizationChecker interface {
 	IsAuthenticated(sub string, obj string, act string) (bool, error)
 }
 
-func AuthMiddleware(authorizer AuthorizationChecker, resolveUserVersion UserVersionResolver) func(http.HandlerFunc) http.HandlerFunc {
+func AuthMiddleware(authorizer AuthorizationChecker) func(http.HandlerFunc) http.HandlerFunc {
 	return func(next http.HandlerFunc) http.HandlerFunc {
 		return func(w http.ResponseWriter, r *http.Request) {
 			tokenString := auth.TokenFromRequest(r)
@@ -54,17 +50,6 @@ func AuthMiddleware(authorizer AuthorizationChecker, resolveUserVersion UserVers
 			claims, err := auth.ParseAccessToken(tokenString)
 			if err != nil {
 				fmt.Println("JWT parse error:", err)
-				httperr.Write(w, http.StatusUnauthorized, "invalid token")
-				return
-			}
-
-			if resolveUserVersion == nil {
-				httperr.Write(w, http.StatusUnauthorized, "invalid token")
-				return
-			}
-
-			userVersion, err := resolveUserVersion(r.Context(), claims.Id)
-			if err != nil || userVersion != claims.Version {
 				httperr.Write(w, http.StatusUnauthorized, "invalid token")
 				return
 			}
