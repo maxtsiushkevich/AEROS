@@ -9,30 +9,32 @@ import (
 	"log/slog"
 	"net/http"
 	"pkg/middleware"
-	rbacMiddleware "rbac"
+	"pkg/rbac"
 
 	"github.com/go-playground/validator/v10"
 	"github.com/google/uuid"
 )
 
 type Server struct {
-	config    *config.Config
-	router    *http.ServeMux
-	logger    *slog.Logger
-	validator *validator.Validate
-	auth      *handlers.AuthHandler
-	storage   storage.AuthStorage
-	cache     cache.RevokedTokenCache
+	config      *config.Config
+	router      *http.ServeMux
+	logger      *slog.Logger
+	validator   *validator.Validate
+	auth        *handlers.AuthHandler
+	storage     storage.AuthStorage
+	cache       cache.RevokedTokenCache
+	rbacService rbac.AuthorizationService
 }
 
-func CreateServer(cfg *config.Config, logger *slog.Logger, db storage.AuthStorage, cache cache.RevokedTokenCache) *Server {
+func CreateServer(cfg *config.Config, logger *slog.Logger, db storage.AuthStorage, cache cache.RevokedTokenCache, rbacService rbac.AuthorizationService) *Server {
 	return &Server{
-		config:    cfg,
-		router:    http.NewServeMux(),
-		logger:    logger,
-		validator: validator.New(),
-		storage:   db,
-		cache:     cache,
+		config:      cfg,
+		router:      http.NewServeMux(),
+		logger:      logger,
+		validator:   validator.New(),
+		storage:     db,
+		cache:       cache,
+		rbacService: rbacService,
 	}
 }
 
@@ -61,7 +63,7 @@ func (s *Server) configureRouter() {
 
 	secure_mw := middleware.MiddlewareGroup{
 		middleware.LoggingMiddleware(s.logger),
-		rbacMiddleware.AuthMiddleware(func(ctx context.Context, id uuid.UUID) (uint32, error) {
+		middleware.AuthMiddleware(s.rbacService, func(ctx context.Context, id uuid.UUID) (uint32, error) {
 			user, err := s.storage.ReadByID(ctx, id)
 			if err != nil {
 				return 0, err

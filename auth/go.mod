@@ -13,10 +13,7 @@ require (
 	gorm.io/driver/postgres v1.6.2
 	gorm.io/gorm v1.31.2
 	pkg v0.0.0-00010101000000-000000000000
-	rbac v0.0.0-00010101000000-000000000000
 )
-
-replace rbac => ../rbac
 
 replace pkg => ../pkg
 

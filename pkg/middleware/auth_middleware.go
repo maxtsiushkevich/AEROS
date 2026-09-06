@@ -1,4 +1,4 @@
-package rbac
+package middleware
 
 import (
 	"context"
@@ -36,19 +36,13 @@ func ClaimsFromContext(ctx context.Context) (*auth.Claims, bool) {
 	return claims, ok
 }
 
-// Usage ClaimsFromContext
-// claims, ok := middleware.ClaimsFromContext(r.Context())
-// if !ok {
-// 	httperr.Write(w, http.StatusUnauthorized, "missing claims")
-// 	return
-// }
-// userID := claims.Id
-// email := claims.Email
-// version := claims.Version
-
 type UserVersionResolver func(ctx context.Context, id uuid.UUID) (uint32, error)
 
-func AuthMiddleware(resolveUserVersion UserVersionResolver) func(http.HandlerFunc) http.HandlerFunc {
+type AuthorizationChecker interface {
+	IsAuthenticated(sub string, obj string, act string) (bool, error)
+}
+
+func AuthMiddleware(authorizer AuthorizationChecker, resolveUserVersion UserVersionResolver) func(http.HandlerFunc) http.HandlerFunc {
 	return func(next http.HandlerFunc) http.HandlerFunc {
 		return func(w http.ResponseWriter, r *http.Request) {
 			tokenString := auth.TokenFromRequest(r)
@@ -57,7 +51,6 @@ func AuthMiddleware(resolveUserVersion UserVersionResolver) func(http.HandlerFun
 				return
 			}
 
-			// there is check if token in blacklist - if yes, return 401
 			claims, err := auth.ParseAccessToken(tokenString)
 			if err != nil {
 				fmt.Println("JWT parse error:", err)
@@ -76,16 +69,19 @@ func AuthMiddleware(resolveUserVersion UserVersionResolver) func(http.HandlerFun
 				return
 			}
 
-			// write claims to context for further use in handlers
 			r = r.WithContext(WithClaims(r.Context(), claims))
 
+			if authorizer == nil {
+				httperr.Write(w, http.StatusInternalServerError, "access checker not configured")
+				return
+			}
+
 			act := methodToAction(r.Method)
-			ok, err := rbacService.IsAuthenticated(claims.Id.String(), r.URL.Path, act)
+			ok, err := authorizer.IsAuthenticated(claims.Id.String(), r.URL.Path, act)
 			if err != nil {
 				httperr.Write(w, http.StatusInternalServerError, "access check error")
 				return
 			}
-
 			if !ok {
 				httperr.Write(w, http.StatusForbidden, "access forbidden")
 				return

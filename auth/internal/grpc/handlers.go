@@ -5,7 +5,6 @@ import (
 	"auth/pkg/errors"
 	"context"
 	"pkg/auth"
-	"rbac"
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -34,7 +33,11 @@ func (s *Auth) AddUser(ctx context.Context, req *grpc.AddUserRequest) (*grpc.Add
 	s.logger.Info("User created successfully", "id", req.Id, "email", req.Email)
 
 	// Create permissions for user
-	rbac.AddUserToRbac(userAuthData.ID)
+	if s.rbacService != nil {
+		if err := s.rbacService.AssignRoleToUser(userAuthData.ID, "user"); err != nil {
+			s.logger.Error("Failed to assign default RBAC role", "user_id", userAuthData.ID, "err", err)
+		}
+	}
 
 	access, err := auth.GenerateAccessToken(&userAuthData.ID, &userAuthData.Email, &userAuthData.Version)
 	if err != nil {

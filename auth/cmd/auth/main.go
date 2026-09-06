@@ -10,6 +10,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"pkg/rbac"
 )
 
 var configPath = flag.String("config", "config/config.yaml", "Path to configuration file")
@@ -25,6 +26,10 @@ func ensureJWTEnv() {
 
 func main() {
 	ensureJWTEnv()
+
+	if _, ok := os.LookupEnv("RBAC_CONFIG_PATH"); !ok || os.Getenv("RBAC_CONFIG_PATH") == "" {
+		_ = os.Setenv("RBAC_CONFIG_PATH", "../rbac_config/config.yaml")
+	}
 
 	// Load config
 	flag.Parse()
@@ -57,20 +62,17 @@ func main() {
 	}()
 
 	// Setup RBAC service
-	// rbacService := rbac.NewRBACService(&cfg.Casbin.ConfigPath, logger)
-	// rbacService.CreateRole("user", "user")
-	// rbacService.CreateResource("/api/v1/auth/change-password", "Change password")
-	// rbacService.CreateAction("write")
-	// rbacService.CreatePermission("/api/v1/auth/change-password", "write")
-	// rbacService.GrantPermissionToRole("user", "/api/v1/auth/change-password", "write")
-	// id, _ := uuid.Parse("123e4567-e89b-12d3-a456-426614174000")
-	// rbacService.AssignRoleToUser(id, "user")
+	rbacService, err := rbac.NewRBACServiceFromEnv()
+	if err != nil {
+		logger.Error("Failed to initialize RBAC service", "err", err)
+		return
+	}
 
 	// Create HTTP server
-	server := http.CreateServer(&cfg, logger, db, cache)
+	server := http.CreateServer(&cfg, logger, db, cache, rbacService)
 
 	// Start gRPC server
-	go grpc.StartGPRCServer(context.Background(), &cfg, logger, db)
+	go grpc.StartGPRCServer(context.Background(), &cfg, logger, db, rbacService)
 
 	// Init server
 	if err := server.Start(); err != nil {

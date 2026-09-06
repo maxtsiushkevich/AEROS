@@ -9,9 +9,8 @@ import (
 	"encoding/json"
 	"log/slog"
 	"net/http"
-	rbacMiddleware "rbac"
-
 	"pkg/httperr"
+	"pkg/middleware"
 
 	"github.com/go-playground/validator/v10"
 )
@@ -139,7 +138,7 @@ func (h *AuthHandler) HandleLogout() http.HandlerFunc {
 func (h *AuthHandler) HandleChangePassword() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		ctx := r.Context()
-		claims, ok := rbacMiddleware.ClaimsFromContext(r.Context())
+		claims, ok := middleware.ClaimsFromContext(r.Context())
 		if !ok {
 			httperr.Write(w, http.StatusUnauthorized, "missing claims")
 			return

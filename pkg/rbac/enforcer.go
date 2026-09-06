@@ -2,7 +2,6 @@ package rbac
 
 import (
 	"fmt"
-	"log"
 	"log/slog"
 
 	"github.com/casbin/casbin/v3"
@@ -12,10 +11,7 @@ import (
 	"gorm.io/gorm"
 )
 
-var rbacService = NewRBACService()
-
 type AuthorizationService interface {
-	// AddUserToRbac(id uuid.UUID)
 	IsAuthenticated(sub string, obj string, act string) (bool, error)
 	CreateRole(name, description string) (*Role, error)
 	DeleteRole(roleName string) error
@@ -33,14 +29,9 @@ type RBACService struct {
 	enforcer *casbin.Enforcer
 }
 
-func AddUserToRbac(id uuid.UUID) {
-	rbacService.AssignRoleToUser(id, "user")
-}
-
-func NewRBACService() *RBACService {
-	cfg, err := LoadConfig("../rbac/config.yaml")
-	if err != nil {
-		log.Fatal("Failed to load config:", err)
+func NewRBACService(cfg CasbinConfig) (*RBACService, error) {
+	if cfg.Host == "" || cfg.User == "" || cfg.Password == "" || cfg.DbName == "" || cfg.ConfigPath == "" {
+		return nil, fmt.Errorf("RBAC config is incomplete")
 	}
 
 	connString := fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s",
@@ -48,25 +39,25 @@ func NewRBACService() *RBACService {
 		cfg.Port,
 		cfg.User,
 		cfg.Password,
-		cfg.DbName)
+		cfg.DbName,
+	)
 
 	a, err := gormadapter.NewAdapter("postgres", connString, true)
 	if err != nil {
-		log.Fatal(err)
+		return nil, fmt.Errorf("create Casbin adapter: %w", err)
 	}
 
 	e, err := casbin.NewEnforcer(cfg.ConfigPath, a)
 	if err != nil {
-		log.Fatal("Failed to create enforcer:", err)
+		return nil, fmt.Errorf("create Casbin enforcer: %w", err)
 	}
-
 	if err := e.LoadPolicy(); err != nil {
-		log.Fatal("Failed to load policy:", err)
+		return nil, fmt.Errorf("load Casbin policy: %w", err)
 	}
 
 	db, err := gorm.Open(postgres.Open(connString), &gorm.Config{})
 	if err != nil {
-		log.Fatal(err)
+		return nil, fmt.Errorf("connect Postgres: %w", err)
 	}
 
 	if err := db.AutoMigrate(
@@ -77,13 +68,18 @@ func NewRBACService() *RBACService {
 		&RolePermission{},
 		&UserRole{},
 	); err != nil {
-		log.Fatal(err)
+		return nil, fmt.Errorf("auto migrate RBAC tables: %w", err)
 	}
 
-	return &RBACService{
-		db:       db,
-		enforcer: e,
+	return &RBACService{db: db, enforcer: e}, nil
+}
+
+func NewRBACServiceFromEnv() (*RBACService, error) {
+	cfg, err := LoadConfigFromEnv()
+	if err != nil {
+		return nil, fmt.Errorf("load RBAC config from env: %w", err)
 	}
+	return NewRBACService(cfg)
 }
 
 func (cs *RBACService) IsAuthenticated(sub string, obj string, act string) (bool, error) {
