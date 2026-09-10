@@ -64,9 +64,35 @@ func (s *Server) configureRouter() {
 		middleware.AuthMiddleware(s.rbacService),
 	}
 
-	s.router.HandleFunc("POST /api/v1/auth/refresh", mw.Apply(s.auth.HandleRefreshTokens()))
-	s.router.HandleFunc("POST /api/v1/auth/login", mw.Apply(s.auth.HandleLogin()))
-	s.router.HandleFunc("POST /api/v1/auth/logout", mw.Apply(s.auth.HandleLogout()))
-	s.router.HandleFunc("POST /api/v1/auth/change-password", secure_mw.Apply(s.auth.HandleChangePassword()))
+	auth := http.NewServeMux()
+	rbac := http.NewServeMux()
+
+	auth.HandleFunc("POST /refresh", mw.Apply(s.auth.HandleRefreshTokens()))
+	auth.HandleFunc("POST /login", mw.Apply(s.auth.HandleLogin()))
+	auth.HandleFunc("POST /logout", mw.Apply(s.auth.HandleLogout()))
+	auth.HandleFunc("POST /change-password", secure_mw.Apply(s.auth.HandleChangePassword()))
+
+	rbac.Handle("POST /roles", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	})) // create role
+	rbac.Handle("DELETE /roles/{role}", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	})) // delete role
+	rbac.Handle("POST /actions", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	})) // create action
+	rbac.Handle("POST /resources", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	})) // create resurce
+	rbac.Handle("POST /permissions", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	})) // create permission
+	rbac.Handle("POST /roles/{role_name}/permissions", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	})) // grant permission to role
+	rbac.Handle("DELETE /roles/{role_name}/permissions", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	})) // revoke permission from role
+	rbac.Handle("POST /users/{user_id}/roles", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	})) // assign role to user
+	rbac.Handle("DELETE /users/{user_id}/roles/{role_name}", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	})) // remove role from user
+
+	s.router.Handle("/api/v1/rbac", http.StripPrefix("/api/v1/rbac", rbac))
+	s.router.Handle("/api/v1/auth", http.StripPrefix("/api/v1/auth", auth))
+
 	s.logger.Info("Router configured")
 }
