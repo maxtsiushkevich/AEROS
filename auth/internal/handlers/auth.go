@@ -23,19 +23,18 @@ type AuthHandler struct {
 	logger   *slog.Logger
 }
 
-func NewAuthHandler(storage storage.AuthStorage, logger *slog.Logger, cache cache.RevokedTokenCache) (*AuthHandler, error) {
+func NewAuthHandler(storage storage.AuthStorage, logger *slog.Logger, cache cache.RevokedTokenCache) *AuthHandler {
 	return &AuthHandler{
 		storage:  storage,
 		cache:    cache,
 		service:  service.CreateAuthService(storage, cache),
 		validate: validator.New(),
 		logger:   logger,
-	}, nil
+	}
 }
 
 func (h *AuthHandler) HandleRefreshTokens() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-
 		cookie, err := r.Cookie("refresh_token")
 		if err != nil {
 			httperr.Write(w, http.StatusBadRequest, "Refresh token missed")
@@ -70,7 +69,6 @@ func (h *AuthHandler) HandleRefreshTokens() http.HandlerFunc {
 
 func (h *AuthHandler) HandleLogin() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-
 		ctx := r.Context()
 		var authRequest dto.AuthRequest
 

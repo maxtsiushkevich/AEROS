@@ -1,6 +1,8 @@
 package rbac
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 
@@ -13,15 +15,15 @@ import (
 
 type AuthorizationService interface {
 	IsAuthenticated(sub string, obj string, act string) (bool, error)
-	CreateRole(name, description string) (*Role, error)
-	DeleteRole(roleName string) error
-	CreateAction(name string) (*Action, error)
-	CreateResource(name, description string) (*Resource, error)
-	CreatePermission(resourceName, actionName string) (*Permission, error)
-	GrantPermissionToRole(roleName, resourceName, actionName string) error
-	RevokePermissionFromRole(roleName, resourceName, actionName string) error
-	AssignRoleToUser(userID uuid.UUID, roleName string) error
-	RemoveRoleFromUser(userID uuid.UUID, roleName string) error
+	CreateRole(ctx context.Context, name, description string) (*Role, error)
+	DeleteRole(ctx context.Context, roleName string) error
+	CreateAction(ctx context.Context, name string) (*Action, error)
+	CreateResource(ctx context.Context, name, description string) (*Resource, error)
+	CreatePermission(ctx context.Context, resourceName, actionName string) (*Permission, error)
+	GrantPermissionToRole(ctx context.Context, roleName, resourceName, actionName string) (*RolePermission, error)
+	RevokePermissionFromRole(ctx context.Context, roleName, resourceName, actionName string) error
+	AssignRoleToUser(ctx context.Context, userID uuid.UUID, roleName string) error
+	RemoveRoleFromUser(ctx context.Context, userID uuid.UUID, roleName string) error
 }
 
 type RBACService struct {
@@ -93,27 +95,40 @@ func (cs *RBACService) IsAuthenticated(sub string, obj string, act string) (bool
 	return ok, nil
 }
 
-func (s *RBACService) CreateRole(name, description string) (*Role, error) {
+func (s *RBACService) CreateRole(ctx context.Context, name, description string) (*Role, error) {
+	var existingRole Role
+	if err := s.db.WithContext(ctx).Where("name = ?", name).First(&existingRole).Error; err == nil {
+		return &existingRole, RoleExistsError
+	}
+
 	role := &Role{
 		Name:        name,
 		Description: description,
 	}
 
-	if err := s.db.Create(role).Error; err != nil {
+	if err := s.db.WithContext(ctx).Create(role).Error; err != nil {
 		return nil, fmt.Errorf("failed to create role: %w", err)
 	}
 
 	return role, nil
 }
 
-func (s *RBACService) DeleteRole(roleName string) error {
+func (s *RBACService) DeleteRole(ctx context.Context, roleName string) error {
+	var role Role
+	if err := s.db.WithContext(ctx).First(&role, "name = ?", roleName).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return RoleNotFound
+		}
+		return fmt.Errorf("failed to find role: %w", err)
+	}
+
 	// Delete RolePermission
-	if err := s.db.Delete(&RolePermission{}, "role_name = ?", roleName).Error; err != nil {
+	if err := s.db.WithContext(ctx).Delete(&RolePermission{}, "role_name = ?", roleName).Error; err != nil {
 		return fmt.Errorf("failed to delete role permissions: %w", err)
 	}
 
 	// Delete Role
-	if err := s.db.Delete(&Role{}, "name = ?", roleName).Error; err != nil {
+	if err := s.db.WithContext(ctx).Delete(&Role{}, "name = ?", roleName).Error; err != nil {
 		return fmt.Errorf("failed to delete role: %w", err)
 	}
 
@@ -124,88 +139,124 @@ func (s *RBACService) DeleteRole(roleName string) error {
 	return nil
 }
 
-func (s *RBACService) CreateAction(name string) (*Action, error) {
+func (s *RBACService) CreateAction(ctx context.Context, name string) (*Action, error) {
+	var existingAction Action
+	if err := s.db.WithContext(ctx).Where("name = ?", name).First(&existingAction).Error; err == nil {
+		return &existingAction, ActionExistsError
+	}
+
 	action := &Action{
 		Name: name,
 	}
 
-	if err := s.db.Create(action).Error; err != nil {
+	if err := s.db.WithContext(ctx).Create(action).Error; err != nil {
 		return nil, fmt.Errorf("failed to create action: %w", err)
 	}
 
 	return action, nil
 }
 
-func (s *RBACService) CreateResource(name, description string) (*Resource, error) {
+func (s *RBACService) CreateResource(ctx context.Context, name, description string) (*Resource, error) {
+	var existingResource Resource
+	if err := s.db.WithContext(ctx).Where("name = ?", name).First(&existingResource).Error; err == nil {
+		return &existingResource, ResourceExistsError
+	}
+
 	resource := &Resource{
 		Name:        name,
 		Description: description,
 	}
 
-	if err := s.db.Create(resource).Error; err != nil {
+	if err := s.db.WithContext(ctx).Create(resource).Error; err != nil {
 		return nil, fmt.Errorf("failed to create resource: %w", err)
 	}
 
 	return resource, nil
 }
 
-func (s *RBACService) CreatePermission(resourceName, actionName string) (*Permission, error) {
-	var resource Resource
-	if err := s.db.First(&resource, "name = ?", resourceName).Error; err != nil {
-		return nil, fmt.Errorf("resource not found: %w", err)
+func (s *RBACService) CreatePermission(ctx context.Context, resourceName, actionName string) (*Permission, error) {
+	var resource *Resource
+	if err := s.db.WithContext(ctx).First(&resource, "name = ?", resourceName).Error; err != nil {
+		return nil, ResourceNotFound
 	}
 
-	var action Action
-	if err := s.db.First(&action, "name = ?", actionName).Error; err != nil {
-		return nil, fmt.Errorf("action not found: %w", err)
+	var action *Action
+	if err := s.db.WithContext(ctx).First(&action, "name = ?", actionName).Error; err != nil {
+		return nil, ActionNotFound
+	}
+
+	var existingPermission Permission
+	if err := s.db.WithContext(ctx).Where("resource_name = ? AND action_name = ?", resourceName, actionName).First(&existingPermission).Error; err == nil {
+		existingPermission.Resource = resource
+		existingPermission.Action = action
+		return &existingPermission, PermissionExistsError
 	}
 
 	perm := &Permission{
 		ResourceName: resourceName,
 		ActionName:   actionName,
+		Resource:     resource,
+		Action:       action,
 	}
 
-	if err := s.db.Create(perm).Error; err != nil {
+	if err := s.db.WithContext(ctx).Create(perm).Error; err != nil {
 		return nil, fmt.Errorf("failed to create permission: %w", err)
 	}
 
 	return perm, nil
 }
 
-func (s *RBACService) GrantPermissionToRole(roleName, resourceName, actionName string) error {
-	var role Role
-	if err := s.db.First(&role, "name = ?", roleName).Error; err != nil {
-		return fmt.Errorf("role not found: %w", err)
+func (s *RBACService) GrantPermissionToRole(ctx context.Context, roleName, resourceName, actionName string) (*RolePermission, error) {
+	var role *Role
+	if err := s.db.WithContext(ctx).First(&role, "name = ?", roleName).Error; err != nil {
+		return nil, RoleNotFound
 	}
 
-	var perm Permission
-	if err := s.db.First(&perm, "resource_name = ? AND action_name = ?", resourceName, actionName).Error; err != nil {
-		return fmt.Errorf("permission not found: %w", err)
+	var perm *Permission
+	if err := s.db.WithContext(ctx).First(&perm, "resource_name = ? AND action_name = ?", resourceName, actionName).Error; err != nil {
+		return nil, PermissionNotFound
+	}
+
+	var existingRolePermission RolePermission
+	if err := s.db.WithContext(ctx).Where("role_name = ? AND resource_name = ? AND action_name = ?", roleName, resourceName, actionName).First(&existingRolePermission).Error; err == nil {
+		existingRolePermission.RoleName = roleName
+		existingRolePermission.ResourceName = resourceName
+		existingRolePermission.ActionName = actionName
+		existingRolePermission.Role = role
+		existingRolePermission.Permission = perm
+		return &existingRolePermission, RolePermissionExistsError
 	}
 
 	rp := &RolePermission{
 		RoleName:     roleName,
 		ResourceName: resourceName,
 		ActionName:   actionName,
+		Role:         role,
+		Permission:   perm,
 	}
 
-	if err := s.db.Create(rp).Error; err != nil {
-		return fmt.Errorf("failed to grant permission to role: %w", err)
+	if err := s.db.WithContext(ctx).Create(rp).Error; err != nil {
+		return nil, fmt.Errorf("failed to grant permission to role: %w", err)
 	}
 
 	s.enforcer.AddPolicy(roleName, resourceName, actionName)
 	s.enforcer.SavePolicy()
 
-	return nil
+	return rp, nil
 }
 
-func (s *RBACService) RevokePermissionFromRole(roleName, resourceName, actionName string) error {
+func (s *RBACService) RevokePermissionFromRole(ctx context.Context, roleName, resourceName, actionName string) error {
 	var perm Permission
-	if err := s.db.First(&perm, "resource_name = ? AND action_name = ?", resourceName, actionName).Error; err != nil {
-		return fmt.Errorf("permission not found: %w", err)
+	if err := s.db.WithContext(ctx).First(&perm, "resource_name = ? AND action_name = ?", resourceName, actionName).Error; err != nil {
+		return PermissionNotFound
 	}
 
-	if err := s.db.Delete(&RolePermission{},
+	var role Role
+	if err := s.db.WithContext(ctx).First(&role, "name = ?", roleName).Error; err != nil {
+		return RoleNotFound
+	}
+
+	if err := s.db.WithContext(ctx).Delete(&RolePermission{},
 		"role_name = ? AND resource_name = ? AND action_name = ?",
 		roleName, resourceName, actionName).Error; err != nil {
 		return fmt.Errorf("failed to revoke permission: %w", err)
@@ -217,10 +268,10 @@ func (s *RBACService) RevokePermissionFromRole(roleName, resourceName, actionNam
 	return nil
 }
 
-func (s *RBACService) AssignRoleToUser(userID uuid.UUID, roleName string) error {
+func (s *RBACService) AssignRoleToUser(ctx context.Context, userID uuid.UUID, roleName string) error {
 	var role Role
-	if err := s.db.First(&role, "name = ?", roleName).Error; err != nil {
-		return fmt.Errorf("role not found: %w", err)
+	if err := s.db.WithContext(ctx).First(&role, "name = ?", roleName).Error; err != nil {
+		return RoleNotFound
 	}
 
 	ur := &UserRole{
@@ -228,7 +279,7 @@ func (s *RBACService) AssignRoleToUser(userID uuid.UUID, roleName string) error 
 		RoleName: roleName,
 	}
 
-	if err := s.db.Create(ur).Error; err != nil {
+	if err := s.db.WithContext(ctx).Create(ur).Error; err != nil {
 		return fmt.Errorf("failed to assign role to user: %w", err)
 	}
 
@@ -238,8 +289,8 @@ func (s *RBACService) AssignRoleToUser(userID uuid.UUID, roleName string) error 
 	return nil
 }
 
-func (s *RBACService) RemoveRoleFromUser(userID uuid.UUID, roleName string) error {
-	if err := s.db.Delete(&UserRole{},
+func (s *RBACService) RemoveRoleFromUser(ctx context.Context, userID uuid.UUID, roleName string) error {
+	if err := s.db.WithContext(ctx).Delete(&UserRole{},
 		"user_id = ? AND role_name = ?", userID, roleName).Error; err != nil {
 		return fmt.Errorf("failed to remove role from user: %w", err)
 	}

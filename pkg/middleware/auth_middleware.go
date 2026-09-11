@@ -62,7 +62,15 @@ func AuthMiddleware(authorizer AuthorizationChecker) func(http.HandlerFunc) http
 			}
 
 			act := methodToAction(r.Method)
-			ok, err := authorizer.IsAuthenticated(claims.Id.String(), r.URL.Path, act)
+			obj := r.Pattern
+			if obj == "" {
+				obj = r.URL.Path
+			}
+
+			fmt.Println(obj)
+
+			ok, err := authorizer.IsAuthenticated(claims.Id.String(), obj, act)
+
 			if err != nil {
 				httperr.Write(w, http.StatusInternalServerError, "access check error")
 				return

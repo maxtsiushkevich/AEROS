@@ -34,7 +34,7 @@ func (s *Auth) AddUser(ctx context.Context, req *grpc.AddUserRequest) (*grpc.Add
 
 	// Create permissions for user
 	if s.rbacService != nil {
-		if err := s.rbacService.AssignRoleToUser(userAuthData.ID, "user"); err != nil {
+		if err := s.rbacService.AssignRoleToUser(ctx, userAuthData.ID, "user"); err != nil {
 			s.logger.Error("Failed to assign default RBAC role", "user_id", userAuthData.ID, "err", err)
 		}
 	}
