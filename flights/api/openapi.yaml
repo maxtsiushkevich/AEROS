@@ -99,6 +99,12 @@ paths:
                 $ref: '#/components/schemas/FlightResponseEnvelope'
         '400':
           $ref: '#/components/responses/BadRequest'
+        '404':
+          description: Flight was not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         '500':
           description: Flight could not be updated.
           content:
@@ -153,7 +159,7 @@ components:
     OriginQuery:
       name: origin
       in: query
-      description: Three-letter IATA origin airport code filter.
+      description: Three-letter IATA origin airport code filter. Whitespace is trimmed and letters are uppercased.
       schema:
         type: string
         maxLength: 3
@@ -161,7 +167,7 @@ components:
     DestinationQuery:
       name: destination
       in: query
-      description: Three-letter IATA destination airport code filter.
+      description: Three-letter IATA destination airport code filter. Whitespace is trimmed and letters are uppercased.
       schema:
         type: string
         maxLength: 3
@@ -273,8 +279,7 @@ components:
           type: string
           format: date-time
         status:
-          type: string
-          description: Flight status. The current handler accepts any string on update.
+          $ref: '#/components/schemas/FlightStatus'
         aircraft:
           type: string
 

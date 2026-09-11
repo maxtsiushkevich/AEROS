@@ -1,0 +1,557 @@
+openapi: 3.0.3
+info:
+  title: Auth Service API
+  version: 1.0.0
+  description: HTTP API for authentication and role-based access control.
+servers:
+  - url: http://localhost:3001
+    description: Local development server
+
+tags:
+  - name: Authentication
+  - name: RBAC
+
+paths:
+  /api/v1/auth/login:
+    post:
+      tags: [Authentication]
+      summary: Authenticate a user
+      operationId: login
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AuthRequest'
+      responses:
+        '200':
+          description: Authentication succeeded. A refresh token is set as an HttpOnly cookie.
+          headers:
+            Set-Cookie:
+              $ref: '#/components/headers/RefreshTokenCookie'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccessTokenResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/v1/auth/refresh:
+    post:
+      tags: [Authentication]
+      summary: Refresh access and refresh tokens
+      operationId: refreshTokens
+      security:
+        - refreshCookie: []
+      responses:
+        '200':
+          description: Tokens refreshed. The refresh token cookie is replaced.
+          headers:
+            Set-Cookie:
+              $ref: '#/components/headers/RefreshTokenCookie'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccessTokenResponse'
+        '400':
+          description: Refresh token cookie is missing.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /api/v1/auth/logout:
+    post:
+      tags: [Authentication]
+      summary: Revoke the refresh token
+      operationId: logout
+      security:
+        - refreshCookie: []
+      responses:
+        '200':
+          description: Logout completed. Missing refresh cookies are treated as a successful logout.
+          headers:
+            Set-Cookie:
+              description: Expired refresh_token cookie.
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /api/v1/auth/change-password:
+    post:
+      tags: [Authentication]
+      summary: Change the authenticated user's password
+      operationId: changePassword
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PasswordUpdateRequest'
+      responses:
+        '200':
+          description: Password changed successfully.
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /api/v1/rbac/roles:
+    put:
+      tags: [RBAC]
+      summary: Create a role
+      operationId: createRole
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateRoleRequest'
+      responses:
+        '201':
+          description: Role created or already exists.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Role'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /api/v1/rbac/roles/{role}:
+    delete:
+      tags: [RBAC]
+      summary: Delete a role
+      operationId: deleteRole
+      parameters:
+        - $ref: '#/components/parameters/RolePath'
+      responses:
+        '204':
+          description: Role deleted.
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /api/v1/rbac/actions:
+    put:
+      tags: [RBAC]
+      summary: Create an action
+      operationId: createAction
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateActionRequest'
+      responses:
+        '201':
+          description: Action created or already exists.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Action'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /api/v1/rbac/resources:
+    put:
+      tags: [RBAC]
+      summary: Create a resource
+      operationId: createResource
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateResourceRequest'
+      responses:
+        '201':
+          description: Resource created or already exists.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Resource'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /api/v1/rbac/permissions:
+    put:
+      tags: [RBAC]
+      summary: Create a permission
+      operationId: createPermission
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PermissionRequest'
+      responses:
+        '201':
+          description: Permission created or already exists.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Permission'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /api/v1/rbac/roles/{role_name}/permissions:
+    put:
+      tags: [RBAC]
+      summary: Grant a permission to a role
+      operationId: grantPermissionToRole
+      parameters:
+        - $ref: '#/components/parameters/RoleNamePath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PermissionRequest'
+      responses:
+        '201':
+          description: Role permission created or already exists.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RolePermission'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+    delete:
+      tags: [RBAC]
+      summary: Revoke a permission from a role
+      operationId: revokePermissionFromRole
+      parameters:
+        - $ref: '#/components/parameters/RoleNamePath'
+        - name: resource
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: action
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Permission revoked.
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /api/v1/rbac/users/{user_id}/roles:
+    put:
+      tags: [RBAC]
+      summary: Assign a role to a user
+      operationId: assignRoleToUser
+      parameters:
+        - $ref: '#/components/parameters/UserIDPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AssignRoleRequest'
+      responses:
+        '204':
+          description: Role assigned.
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /api/v1/rbac/users/{user_id}/roles/{role_name}:
+    delete:
+      tags: [RBAC]
+      summary: Remove a role from a user
+      operationId: removeRoleFromUser
+      parameters:
+        - $ref: '#/components/parameters/UserIDPath'
+        - name: role_name
+          in: path
+          required: true
+          schema:
+            type: string
+            minLength: 2
+            maxLength: 30
+            pattern: '^[A-Za-z]+$'
+      responses:
+        '204':
+          description: Role removed.
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+    refreshCookie:
+      type: apiKey
+      in: cookie
+      name: refresh_token
+
+  headers:
+    RefreshTokenCookie:
+      description: HttpOnly refresh token cookie. The server currently sets Path=/ and SameSite=Strict.
+      schema:
+        type: string
+
+  parameters:
+    RolePath:
+      name: role
+      in: path
+      required: true
+      schema:
+        type: string
+        minLength: 2
+        maxLength: 30
+        pattern: '^[A-Za-z]+$'
+    RoleNamePath:
+      name: role_name
+      in: path
+      required: true
+      schema:
+        type: string
+        minLength: 2
+        maxLength: 30
+        pattern: '^[A-Za-z]+$'
+    UserIDPath:
+      name: user_id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+
+  responses:
+    BadRequest:
+      description: Invalid request.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    Unauthorized:
+      description: Authentication failed or token is invalid.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    NotFound:
+      description: Requested entity was not found.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    InternalServerError:
+      description: Internal server error.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+  schemas:
+    AuthRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          format: password
+          minLength: 8
+    PasswordUpdateRequest:
+      type: object
+      required: [old_password, new_password]
+      properties:
+        old_password:
+          type: string
+          format: password
+          minLength: 8
+        new_password:
+          type: string
+          format: password
+          minLength: 8
+    AccessTokenResponse:
+      type: object
+      required: [access_token]
+      properties:
+        access_token:
+          type: string
+    MessageResponse:
+      type: object
+      required: [message]
+      properties:
+        message:
+          type: string
+          example: Logout complete
+    Error:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: string
+    CreateRoleRequest:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          minLength: 2
+          maxLength: 30
+          pattern: '^[A-Za-z]+$'
+        description:
+          type: string
+          maxLength: 100
+    CreateActionRequest:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          minLength: 2
+          maxLength: 30
+          pattern: '^[A-Za-z]+$'
+    CreateResourceRequest:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+          maxLength: 100
+    PermissionRequest:
+      type: object
+      required: [resource_name, action_name]
+      properties:
+        resource_name:
+          type: string
+          minLength: 2
+        action_name:
+          type: string
+          minLength: 2
+          maxLength: 30
+          pattern: '^[A-Za-z]+$'
+    AssignRoleRequest:
+      type: object
+      required: [role_name]
+      properties:
+        role_name:
+          type: string
+          minLength: 2
+          maxLength: 30
+          pattern: '^[A-Za-z]+$'
+    Role:
+      type: object
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+    Action:
+      type: object
+      properties:
+        name:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+    Resource:
+      type: object
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+    Permission:
+      type: object
+      properties:
+        resource_name:
+          type: string
+        action_name:
+          type: string
+        resource:
+          $ref: '#/components/schemas/Resource'
+        action:
+          $ref: '#/components/schemas/Action'
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+    RolePermission:
+      type: object
+      properties:
+        role_name:
+          type: string
+        resource_name:
+          type: string
+        action_name:
+          type: string
+        role:
+          $ref: '#/components/schemas/Role'
+        permission:
+          $ref: '#/components/schemas/Permission'
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
