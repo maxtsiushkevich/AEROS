@@ -62,12 +62,7 @@ func AuthMiddleware(authorizer AuthorizationChecker) func(http.HandlerFunc) http
 			}
 
 			act := methodToAction(r.Method)
-			obj := r.Pattern
-			if obj == "" {
-				obj = r.URL.Path
-			}
-
-			fmt.Println(obj)
+			obj := CasbinObjFromRequest(r)
 
 			ok, err := authorizer.IsAuthenticated(claims.Id.String(), obj, act)
 

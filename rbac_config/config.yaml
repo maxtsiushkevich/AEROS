@@ -6,3 +6,7 @@ casbin_db_pass: 123
 casbin_db_name: casbin
 
 casbin_config_path: ../rbac_config/model.conf
+
+redis_addr: localhost:6379
+redis_pass: 123        
+redis_channel: casbin_updates

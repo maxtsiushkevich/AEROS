@@ -4,9 +4,13 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"log/slog"
 	"net/http"
 
 	auth "users/api/proto"
+
+	"pkg/middleware"
+	"pkg/rbac"
 
 	"github.com/gin-gonic/gin"
 	"google.golang.org/grpc"
@@ -19,12 +23,17 @@ type Server struct {
 	router   *gin.Engine
 	config   *config.Config
 	grpcConn *grpc.ClientConn
+
+	logger      *slog.Logger
+	rbacService rbac.AuthorizationService
 }
 
-func NewServer(cfg *config.Config) *Server {
+func NewServer(cfg *config.Config, logger *slog.Logger, rbacService rbac.AuthorizationService) *Server {
 	return &Server{
-		router: gin.Default(),
-		config: cfg,
+		router:      gin.Default(),
+		config:      cfg,
+		logger:      logger,
+		rbacService: rbacService,
 	}
 }
 
@@ -37,6 +46,8 @@ func (s *Server) ConfigServer() {
 		log.Fatalf("Error creating gRPC client: %v", err)
 	}
 	s.grpcConn = conn
+
+	s.router.Use(middleware.GinAuthMiddleware(s.rbacService))
 
 	s.configRoutes()
 
@@ -56,8 +67,9 @@ func (s *Server) configRoutes() {
 		client := auth.NewAuthClient(s.grpcConn)
 
 		resp, err := client.AddUser(context.Background(), &auth.AddUserRequest{
-			Id:       "1234",
+			Id:       "00000000-0000-0000-0000-100000000000",
 			Password: "34mf9304mf3940fj43jf34iksdz",
+			Email:    "max@gmail.com",
 		})
 
 		if err != nil {

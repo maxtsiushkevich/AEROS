@@ -5,10 +5,16 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"net/url"
+	"strings"
+	"sync"
+	"time"
 
 	"github.com/casbin/casbin/v3"
-	gormadapter "github.com/casbin/gorm-adapter/v3"
+	"github.com/casbin/casbin/v3/persist"
+	rediswatcher "github.com/casbin/redis-watcher/v2"
 	"github.com/google/uuid"
+	rds "github.com/redis/go-redis/v9"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )
@@ -27,13 +33,16 @@ type AuthorizationService interface {
 }
 
 type RBACService struct {
-	db       *gorm.DB
-	enforcer *casbin.Enforcer
+	db         *gorm.DB
+	enforcer   *casbin.Enforcer
+	watcher    persist.Watcher
+	reloadMu   sync.Mutex
+	lastReload time.Time
 }
 
 func NewRBACService(cfg CasbinConfig) (*RBACService, error) {
-	if cfg.Host == "" || cfg.User == "" || cfg.Password == "" || cfg.DbName == "" || cfg.ConfigPath == "" {
-		return nil, fmt.Errorf("RBAC config is incomplete")
+	if cfg.Host == "" || cfg.User == "" || cfg.Password == "" || cfg.DbName == "" || cfg.ConfigPath == "" || cfg.RedisAddr == "" || cfg.RedisChannel == "" {
+		return nil, fmt.Errorf("RBAC config is incomplete: missing required DB or Redis fields")
 	}
 
 	connString := fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s",
@@ -44,19 +53,7 @@ func NewRBACService(cfg CasbinConfig) (*RBACService, error) {
 		cfg.DbName,
 	)
 
-	a, err := gormadapter.NewAdapter("postgres", connString, true)
-	if err != nil {
-		return nil, fmt.Errorf("create Casbin adapter: %w", err)
-	}
-
-	e, err := casbin.NewEnforcer(cfg.ConfigPath, a)
-	if err != nil {
-		return nil, fmt.Errorf("create Casbin enforcer: %w", err)
-	}
-	if err := e.LoadPolicy(); err != nil {
-		return nil, fmt.Errorf("load Casbin policy: %w", err)
-	}
-
+	// DB is the source of truth
 	db, err := gorm.Open(postgres.Open(connString), &gorm.Config{})
 	if err != nil {
 		return nil, fmt.Errorf("connect Postgres: %w", err)
@@ -73,7 +70,102 @@ func NewRBACService(cfg CasbinConfig) (*RBACService, error) {
 		return nil, fmt.Errorf("auto migrate RBAC tables: %w", err)
 	}
 
-	return &RBACService{db: db, enforcer: e}, nil
+	// Create an in-memory Casbin enforcer
+	e, err := casbin.NewEnforcer(cfg.ConfigPath)
+	if err != nil {
+		return nil, fmt.Errorf("create Casbin enforcer: %w", err)
+	}
+
+	svc := &RBACService{db: db, enforcer: e}
+
+	// Load policies
+	if err := svc.loadPoliciesFromDB(); err != nil {
+		return nil, fmt.Errorf("load policies from DB: %w", err)
+	}
+
+	watchAddr := cfg.RedisAddr
+	if strings.Contains(watchAddr, "://") {
+		if u, err := url.Parse(watchAddr); err == nil {
+			if u.Host != "" {
+				watchAddr = u.Host
+			}
+		}
+	} else if strings.Contains(watchAddr, "@") {
+		// strip potential userinfo
+		if parts := strings.SplitN(watchAddr, "@", 2); len(parts) == 2 {
+			watchAddr = parts[1]
+		}
+	}
+
+	opts := rediswatcher.WatcherOptions{}
+	if cfg.RedisPass != "" {
+		opts.Options = rds.Options{Password: cfg.RedisPass}
+	}
+	if cfg.RedisChannel != "" {
+		opts.Channel = cfg.RedisChannel
+	}
+	opts.IgnoreSelf = true
+	opts.LocalID = uuid.NewString()
+
+	w, err := rediswatcher.NewWatcher(watchAddr, opts)
+	if err != nil {
+		return nil, fmt.Errorf("create redis watcher: %w", err)
+	}
+
+	type cbSetter interface {
+		SetUpdateCallback(func(string)) error
+	}
+	if setter, ok := w.(cbSetter); ok {
+		_ = setter.SetUpdateCallback(func(msg string) {
+			svc.reloadMu.Lock()
+			since := time.Since(svc.lastReload)
+			svc.reloadMu.Unlock()
+			if since < 500*time.Millisecond {
+				return
+			}
+
+			if err := svc.loadPoliciesFromDB(); err != nil {
+				slog.Error("failed to reload policies from DB on watcher callback", "err", err)
+			}
+		})
+	}
+
+	e.SetWatcher(w)
+	svc.watcher = w
+
+	return svc, nil
+}
+
+func (s *RBACService) loadPoliciesFromDB() error {
+	s.enforcer.ClearPolicy()
+
+	var rps []RolePermission
+	if err := s.db.Find(&rps).Error; err != nil {
+		return fmt.Errorf("fetch role permissions: %w", err)
+	}
+	var loadedPolicies []string
+	for _, rp := range rps {
+		s.enforcer.AddPolicy(rp.RoleName, rp.ResourceName, rp.ActionName)
+		loadedPolicies = append(loadedPolicies, fmt.Sprintf("%s,%s,%s", rp.RoleName, rp.ResourceName, rp.ActionName))
+	}
+
+	var urs []UserRole
+	if err := s.db.Find(&urs).Error; err != nil {
+		return fmt.Errorf("fetch user roles: %w", err)
+	}
+	var loadedGroupings []string
+	for _, ur := range urs {
+		s.enforcer.AddGroupingPolicy(ur.UserID.String(), ur.RoleName)
+		loadedGroupings = append(loadedGroupings, fmt.Sprintf("%s->%s", ur.UserID.String(), ur.RoleName))
+	}
+
+	slog.Info("Loaded policies from DB", "count_policies", len(loadedPolicies), "policies", loadedPolicies, "count_groupings", len(loadedGroupings), "groupings", loadedGroupings)
+
+	s.reloadMu.Lock()
+	s.lastReload = time.Now().UTC()
+	s.reloadMu.Unlock()
+
+	return nil
 }
 
 func NewRBACServiceFromEnv() (*RBACService, error) {
@@ -132,9 +224,16 @@ func (s *RBACService) DeleteRole(ctx context.Context, roleName string) error {
 		return fmt.Errorf("failed to delete role: %w", err)
 	}
 
-	// Update Casbin policies
+	// Update Casbin cache and notify other instances via watcher
 	s.enforcer.RemoveFilteredPolicy(0, roleName)
-	s.enforcer.SavePolicy()
+	if s.watcher != nil {
+		type remFiltered interface {
+			UpdateForRemoveFilteredPolicy(sec, ptype string, fieldIndex int, fieldValues ...string) error
+		}
+		if rf, ok := s.watcher.(remFiltered); ok {
+			_ = rf.UpdateForRemoveFilteredPolicy("p", "p", 0, roleName)
+		}
+	}
 
 	return nil
 }
@@ -240,7 +339,14 @@ func (s *RBACService) GrantPermissionToRole(ctx context.Context, roleName, resou
 	}
 
 	s.enforcer.AddPolicy(roleName, resourceName, actionName)
-	s.enforcer.SavePolicy()
+	if s.watcher != nil {
+		type addUpd interface {
+			UpdateForAddPolicy(sec, ptype string, params ...string) error
+		}
+		if au, ok := s.watcher.(addUpd); ok {
+			_ = au.UpdateForAddPolicy("p", "p", roleName, resourceName, actionName)
+		}
+	}
 
 	return rp, nil
 }
@@ -263,7 +369,14 @@ func (s *RBACService) RevokePermissionFromRole(ctx context.Context, roleName, re
 	}
 
 	s.enforcer.RemovePolicy(roleName, resourceName, actionName)
-	s.enforcer.SavePolicy()
+	if s.watcher != nil {
+		type remUpd interface {
+			UpdateForRemovePolicy(sec, ptype string, params ...string) error
+		}
+		if ru, ok := s.watcher.(remUpd); ok {
+			_ = ru.UpdateForRemovePolicy("p", "p", roleName, resourceName, actionName)
+		}
+	}
 
 	return nil
 }
@@ -284,7 +397,14 @@ func (s *RBACService) AssignRoleToUser(ctx context.Context, userID uuid.UUID, ro
 	}
 
 	s.enforcer.AddGroupingPolicy(userID.String(), roleName)
-	s.enforcer.SavePolicy()
+	if s.watcher != nil {
+		type addUpd interface {
+			UpdateForAddPolicy(sec, ptype string, params ...string) error
+		}
+		if au, ok := s.watcher.(addUpd); ok {
+			_ = au.UpdateForAddPolicy("g", "g", userID.String(), roleName)
+		}
+	}
 
 	return nil
 }
@@ -296,7 +416,14 @@ func (s *RBACService) RemoveRoleFromUser(ctx context.Context, userID uuid.UUID, 
 	}
 
 	s.enforcer.RemoveGroupingPolicy(userID.String(), roleName)
-	s.enforcer.SavePolicy()
+	if s.watcher != nil {
+		type remUpd interface {
+			UpdateForRemovePolicy(sec, ptype string, params ...string) error
+		}
+		if ru, ok := s.watcher.(remUpd); ok {
+			_ = ru.UpdateForRemovePolicy("g", "g", userID.String(), roleName)
+		}
+	}
 
 	return nil
 }

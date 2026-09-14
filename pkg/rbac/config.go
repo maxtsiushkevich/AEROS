@@ -15,6 +15,10 @@ type CasbinConfig struct {
 	Password   string `yaml:"casbin_db_pass"`
 	DbName     string `yaml:"casbin_db_name"`
 	ConfigPath string `yaml:"casbin_config_path"`
+
+	RedisAddr    string `yaml:"redis_addr"`
+	RedisPass    string `yaml:"redis_pass"`
+	RedisChannel string `yaml:"redis_channel"`
 }
 
 func LoadConfig(filePath string) (CasbinConfig, error) {
@@ -35,6 +39,14 @@ func LoadConfig(filePath string) (CasbinConfig, error) {
 	}
 	if config.Port <= 0 {
 		return CasbinConfig{}, fmt.Errorf("RBAC config file %q has invalid casbin_db_port", filePath)
+	}
+
+	// Redis settings are required for watcher synchronization
+	if config.RedisAddr == "" {
+		return CasbinConfig{}, fmt.Errorf("RBAC config file %q is missing redis_addr", filePath)
+	}
+	if config.RedisChannel == "" {
+		return CasbinConfig{}, fmt.Errorf("RBAC config file %q is missing redis_channel", filePath)
 	}
 
 	return config, nil
