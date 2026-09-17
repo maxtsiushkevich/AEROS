@@ -1,0 +1,34 @@
+version: '3.8'
+
+services:
+  redis:
+    image: redis:7-alpine
+    container_name: auth-redis
+    command: redis-server --requirepass 123 --appendonly yes
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "123", "PING"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - auth_network
+    restart: unless-stopped
+
+  redis-insight:
+    image: redislabs/redisinsight:latest
+    container_name: auth-redis-insight
+    ports:
+      - "5540:5540"
+    environment:
+      - REDIS_HOSTS=redis://:123@redis:6379
+    depends_on:
+      - redis
+    networks:
+      - auth_network
+    restart: unless-stopped
+
+networks:
+  auth_network:
+    driver: bridge
