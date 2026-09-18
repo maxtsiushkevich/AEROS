@@ -34,6 +34,16 @@ func NewRedis(cfg *config.Config, logger *slog.Logger) (*RedisRevokedTokenCache,
 	}, nil
 }
 
+func (c *RedisRevokedTokenCache) Shutdown() error {
+	err := c.client.Close()
+	if err != nil {
+		c.logger.Error(err.Error())
+		return err
+	}
+	c.logger.Info("Redis revoked token cache connection closed")
+	return nil
+}
+
 func (c *RedisRevokedTokenCache) Get(ctx context.Context, tkn string) ([]byte, error) {
 	value, err := c.client.Get(ctx, "revoked:refresh:"+tkn).Bytes()
 	if err != nil {

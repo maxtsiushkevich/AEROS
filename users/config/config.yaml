@@ -4,10 +4,10 @@ database:
     db_address: localhost:5432
     db_user: user
     db_pass: 123
-    db_name: flights
+    db_name: users
 
 http_server:
-    address: localhost:3000
+    address: localhost:3002
     timeout: 5s
     idle_timeout: 60s
 

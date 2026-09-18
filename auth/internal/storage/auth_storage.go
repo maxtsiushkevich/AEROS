@@ -69,8 +69,14 @@ func (s *AuthPostgresStorage) Close() error {
 	if err != nil {
 		return err
 	}
-	database.Close()
-	s.logger.Info("Database connection closed", "err", err)
+
+	err = database.Close()
+	if err != nil {
+		s.logger.Error("Failed to close database connection", "err", err)
+		return err
+	}
+
+	s.logger.Info("Database connection closed")
 	return nil
 }
 

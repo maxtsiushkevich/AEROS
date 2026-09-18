@@ -5,37 +5,34 @@ import (
 	"auth/internal/config"
 	"auth/internal/handlers"
 	"auth/internal/storage"
+	"context"
+	"errors"
 	"log/slog"
+	"net"
 	"net/http"
 	"pkg/middleware"
 	"pkg/rbac"
-
-	"github.com/go-playground/validator/v10"
 )
 
 type Server struct {
 	config *config.Config
-	router *http.ServeMux
+	server *http.Server
 	logger *slog.Logger
-
-	validator *validator.Validate
-	auth      *handlers.AuthHandler
-	rbac      *handlers.RbacHandler
+	auth   *handlers.AuthHandler
+	rbac   *handlers.RbacHandler
 
 	storage     storage.AuthStorage
 	cache       cache.RevokedTokenCache
 	rbacService rbac.AuthorizationService
 }
 
-func CreateServer(cfg *config.Config, logger *slog.Logger, db storage.AuthStorage, cache cache.RevokedTokenCache, rbacService rbac.AuthorizationService) *Server {
+func CreateServer(cfg *config.Config, l *slog.Logger, db storage.AuthStorage, c cache.RevokedTokenCache, rbac rbac.AuthorizationService) *Server {
 	return &Server{
 		config:      cfg,
-		router:      http.NewServeMux(),
-		logger:      logger,
-		validator:   validator.New(),
+		logger:      l,
 		storage:     db,
-		cache:       cache,
-		rbacService: rbacService,
+		cache:       c,
+		rbacService: rbac,
 	}
 }
 
@@ -44,14 +41,42 @@ func (s *Server) Start() error {
 	s.auth = handlers.NewAuthHandler(s.storage, s.logger, s.cache)
 	s.rbac = handlers.NewRbacHandler(s.rbacService, s.logger)
 
-	s.configureRouter()
+	router := http.NewServeMux()
+	s.configureRouter(router)
 
 	s.logger.Info("Start server", "env", s.config.Env)
 	s.logger.Debug("Serve on", "addr", "http://"+s.config.HTTPServer.Address)
-	return http.ListenAndServe(s.config.HTTPServer.Address, s.router)
+
+	s.server = &http.Server{
+		Addr:    s.config.HTTPServer.Address,
+		Handler: router,
+	}
+
+	listener, err := net.Listen("tcp", s.server.Addr)
+	if err != nil {
+		return err
+	}
+
+	go func() {
+		if err := s.server.Serve(listener); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			s.logger.Error("Failed to start HTTP server", "err", err)
+		}
+	}()
+
+	return nil
 }
 
-func (s *Server) configureRouter() {
+func (s *Server) Shutdown(ctx context.Context) error {
+	err := s.server.Shutdown(ctx)
+	if err != nil {
+		s.logger.Error(err.Error())
+		return err
+	}
+	s.logger.Info("Finished graceful shutdown for the HTTP server")
+	return nil
+}
+
+func (s *Server) configureRouter(router *http.ServeMux) {
 
 	mw := middleware.MiddlewareGroup{
 		middleware.LoggingMiddleware(s.logger),
@@ -85,8 +110,8 @@ func (s *Server) configureRouter() {
 	rbac.Handle("PUT /users/{user_id}/roles", mw.Apply(s.rbac.AssignRoleToUser()))                  // assign role to user
 	rbac.Handle("DELETE /users/{user_id}/roles/{role_name}", mw.Apply(s.rbac.RemoveRoleFromUser())) // remove role from user
 
-	s.router.Handle("/api/v1/rbac/", http.StripPrefix("/api/v1/rbac", rbac))
-	s.router.Handle("/api/v1/auth/", http.StripPrefix("/api/v1/auth", auth))
+	router.Handle("/api/v1/rbac/", http.StripPrefix("/api/v1/rbac", rbac))
+	router.Handle("/api/v1/auth/", http.StripPrefix("/api/v1/auth", auth))
 
 	s.logger.Info("Router configured")
 }

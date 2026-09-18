@@ -2,12 +2,9 @@ package http
 
 import (
 	"context"
-	"fmt"
 	"log"
 	"log/slog"
 	"net/http"
-
-	auth "users/api/proto"
 
 	"pkg/middleware"
 	"pkg/rbac"
@@ -17,69 +14,88 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 
 	"users/internal/config"
+	"users/internal/handlers"
+	"users/internal/storage"
 )
 
 type Server struct {
-	router   *gin.Engine
-	config   *config.Config
-	grpcConn *grpc.ClientConn
-
+	// router      *gin.Engine
+	server      *http.Server
+	config      *config.Config
+	grpcConn    *grpc.ClientConn
 	logger      *slog.Logger
 	rbacService rbac.AuthorizationService
+	userHandler *handlers.UserHandler
+	storage     storage.UsersStorage
 }
 
-func NewServer(cfg *config.Config, logger *slog.Logger, rbacService rbac.AuthorizationService) *Server {
+func NewServer(cfg *config.Config, logger *slog.Logger, rbacService rbac.AuthorizationService, db storage.UsersStorage) *Server {
 	return &Server{
-		router:      gin.Default(),
 		config:      cfg,
 		logger:      logger,
 		rbacService: rbacService,
+		storage:     db,
 	}
 }
 
-func (s *Server) ConfigServer() {
+func (s *Server) Start() error {
 	authServerAddr := s.config.AuthServer.Address
 
 	// should use secure connection
 	conn, err := grpc.NewClient(authServerAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		log.Fatalf("Error creating gRPC client: %v", err)
+		return err
 	}
+
 	s.grpcConn = conn
 
-	s.router.Use(middleware.GinAuthMiddleware(s.rbacService))
+	s.userHandler = handlers.NewUserHandler(s.grpcConn)
 
-	s.configRoutes()
+	router := gin.Default()
+	router.Use(middleware.GinAuthMiddleware(s.rbacService))
 
-	server := &http.Server{
+	s.configRoutes(router)
+
+	s.server = &http.Server{
 		Addr:        s.config.HTTPServer.Address,
 		ReadTimeout: s.config.HTTPServer.Timeout,
 		IdleTimeout: s.config.HTTPServer.IdleTimeout,
-		Handler:     s.router,
+		Handler:     router,
 	}
 
-	server.ListenAndServe()
+	go func() {
+		s.logger.Info("Starting HTTP server", "addr", s.server.Addr)
+		if err := s.server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			s.logger.Error("HTTP server error", "error", err)
+		}
+	}()
 
+	return nil
 }
 
-func (s *Server) configRoutes() {
-	s.router.GET("/ping", func(c *gin.Context) {
-		client := auth.NewAuthClient(s.grpcConn)
+func (s *Server) Shutdown(ctx context.Context) error {
+	err := s.server.Shutdown(ctx)
+	if err != nil {
+		s.logger.Error(err.Error())
+		return err
+	}
 
-		resp, err := client.AddUser(context.Background(), &auth.AddUserRequest{
-			Id:       "00000000-0000-0000-0000-100000000000",
-			Password: "34mf9304mf3940fj43jf34iksdz",
-			Email:    "max@gmail.com",
-		})
+	err = s.grpcConn.Close()
+	if err != nil {
+		s.logger.Error(err.Error())
+		return err
+	}
 
-		if err != nil {
-			c.String(http.StatusInternalServerError, "Error calling gRPC service: %v", err)
-			return
-		}
+	s.logger.Info("Finished graceful shutdown for the HTTP server")
+	s.logger.Info("gRPC client connection closed")
 
-		// В resp будут refresh и access токены, которые нужно записать в куки
-		fmt.Println(resp)
+	return nil
+}
 
-		c.String(http.StatusOK, "pong")
-	})
+func (s *Server) configRoutes(router *gin.Engine) {
+	g := router.Group("/api/v1/users")
+	g.GET("/", s.userHandler.Account)
+	g.POST("/registration", s.userHandler.Registration)
+
 }
