@@ -43,6 +43,8 @@ func (r *GetFlightsRequestQuery) ToServiceQuery() *models.FlightQuery {
 		Status:       r.Status,
 		DateFrom:     r.DateFrom,
 		DateTo:       r.DateTo,
+		Limit:        r.Limit,
+		Page:         r.Page,
 	}
 }
 

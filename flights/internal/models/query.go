@@ -13,4 +13,6 @@ type FlightQuery struct {
 	Status       *string `validate:"omitempty,oneof=Scheduled CheckIn Boarding Delayed Departed Arrived Cancelled Redirected"`
 	DateFrom     *time.Time
 	DateTo       *time.Time
+	Limit        int
+	Page         int
 }

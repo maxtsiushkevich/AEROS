@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"pkg/auth"
+	"pkg/helpers"
 	"pkg/httperr"
 )
 
@@ -21,17 +22,8 @@ func methodToAction(method string) string {
 	}
 }
 
-type contextKey string
-
-const claimsContextKey contextKey = "auth_claims"
-
-func WithClaims(ctx context.Context, claims *auth.Claims) context.Context {
-	return context.WithValue(ctx, claimsContextKey, claims)
-}
-
-func ClaimsFromContext(ctx context.Context) (*auth.Claims, bool) {
-	claims, ok := ctx.Value(claimsContextKey).(*auth.Claims)
-	return claims, ok
+func withClaims(ctx context.Context, claims *auth.Claims) context.Context {
+	return context.WithValue(ctx, helpers.ClaimsContextKey, claims)
 }
 
 type AuthorizationChecker interface {
@@ -54,7 +46,7 @@ func AuthMiddleware(authorizer AuthorizationChecker) func(http.HandlerFunc) http
 				return
 			}
 
-			r = r.WithContext(WithClaims(r.Context(), claims))
+			r = r.WithContext(withClaims(r.Context(), claims))
 
 			if authorizer == nil {
 				httperr.Write(w, http.StatusInternalServerError, "access checker not configured")

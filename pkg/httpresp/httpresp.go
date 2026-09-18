@@ -5,16 +5,12 @@ import (
 	"net/http"
 )
 
-type envelope[T any] struct {
-	Data T `json:"data"`
-}
-
 func OK[T any](w http.ResponseWriter, data T) {
-	writeJSON(w, http.StatusOK, envelope[T]{Data: data})
+	writeJSON(w, http.StatusOK, data)
 }
 
 func Created[T any](w http.ResponseWriter, data T) {
-	writeJSON(w, http.StatusCreated, envelope[T]{Data: data})
+	writeJSON(w, http.StatusCreated, data)
 }
 
 func writeJSON[T any](w http.ResponseWriter, status int, data T) {

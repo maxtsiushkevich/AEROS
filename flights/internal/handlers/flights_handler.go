@@ -25,10 +25,7 @@ type FlightHandler struct {
 	validator *validator.Validate
 }
 
-func NewFlightHandler(
-	storage storage.FlightsStorage,
-	validator *validator.Validate) (*FlightHandler, error) {
-
+func NewFlightHandler(storage storage.FlightsStorage) (*FlightHandler, error) {
 	if err := storage.Open(); err != nil {
 		return nil, err
 	}
@@ -36,7 +33,7 @@ func NewFlightHandler(
 	return &FlightHandler{
 		storage:   storage,
 		service:   service.CreateFlightService(storage),
-		validator: validator,
+		validator: validator.New(),
 	}, nil
 }
 
@@ -67,7 +64,13 @@ func (h *FlightHandler) HandleGetFlights() http.HandlerFunc {
 			return
 		}
 
-		data := dto.FlightsToResponses(flights)
+		data := dto.FlightListResponse{
+			Data: dto.FlightsToResponses(flights),
+			Pagination: dto.PaginationResponse{
+				Page:  request.Page,
+				Limit: request.Limit,
+			},
+		}
 		httpresp.OK(w, data)
 	}
 }

@@ -13,6 +13,9 @@ type GetFlightsRequestQuery struct {
 	Status       *string `validate:"omitempty,oneof=Scheduled CheckIn Boarding Delayed Departed Arrived Cancelled Redirected"`
 	DateFrom     *time.Time
 	DateTo       *time.Time
+
+	Limit int `validate:"omitempty,min=1,max=100"`
+	Page  int `validate:"omitempty,min=1"`
 }
 
 type CreateFlightRequest struct {
@@ -42,4 +45,14 @@ type FlightResponse struct {
 	Date         time.Time `json:"date"`
 	Status       string    `json:"status"`
 	Aircraft     string    `json:"aircraft"`
+}
+
+type PaginationResponse struct {
+	Page  int `json:"page"`
+	Limit int `json:"limit"`
+}
+
+type FlightListResponse struct {
+	Data       []FlightResponse   `json:"data"`
+	Pagination PaginationResponse `json:"pagination"`
 }

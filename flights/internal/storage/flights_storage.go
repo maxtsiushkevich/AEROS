@@ -123,6 +123,13 @@ func (s *FlightsPostgresStorage) Read(ctx context.Context, filter *models.Flight
 		query = query.Where("date <= ?", filter.DateTo)
 	}
 
+	if filter.Limit > 0 {
+		query = query.Order("date ASC, id ASC").Limit(filter.Limit)
+		if filter.Page > 1 {
+			query = query.Offset((filter.Page - 1) * filter.Limit)
+		}
+	}
+
 	if err := query.Find(&flights).Error; err != nil {
 		s.logger.Error("Failed to read flights", "err", err)
 		return nil, err

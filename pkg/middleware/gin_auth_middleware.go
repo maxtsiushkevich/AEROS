@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 	"pkg/auth"
+	"pkg/helpers"
 	"pkg/httperr"
 
 	"github.com/gin-gonic/gin"
@@ -25,7 +26,7 @@ func GinAuthMiddleware(authorizer AuthorizationChecker) gin.HandlerFunc {
 			return
 		}
 
-		ctx := context.WithValue(c.Request.Context(), claimsContextKey, claims)
+		ctx := context.WithValue(c.Request.Context(), helpers.ClaimsContextKey, claims)
 		c.Request = c.Request.WithContext(ctx)
 
 		if authorizer == nil {

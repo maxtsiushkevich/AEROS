@@ -3,6 +3,7 @@ package utils
 import (
 	"flights/internal/dto"
 	"net/url"
+	"strconv"
 	"time"
 )
 
@@ -26,6 +27,15 @@ func ParseGetFlightsQuery(queryParams url.Values) (*dto.GetFlightsRequestQuery, 
 		return nil, err
 	}
 
+	page, err := strconv.Atoi(queryParams.Get("page"))
+	if err != nil || page < 1 {
+		page = 1
+	}
+	limit, err := strconv.Atoi(queryParams.Get("limit"))
+	if err != nil || limit < 1 {
+		limit = 10
+	}
+
 	return &dto.GetFlightsRequestQuery{
 		FlightNumber: getStringOrNil(queryParams, "flight_number"),
 		Origin:       getStringOrNil(queryParams, "origin"),
@@ -33,6 +43,8 @@ func ParseGetFlightsQuery(queryParams url.Values) (*dto.GetFlightsRequestQuery, 
 		Status:       getStringOrNil(queryParams, "status"),
 		DateFrom:     dateFrom,
 		DateTo:       dateTo,
+		Limit:        limit,
+		Page:         page,
 	}, nil
 }
 

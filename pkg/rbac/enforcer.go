@@ -8,7 +8,6 @@ import (
 	"net/url"
 	"strings"
 	"sync"
-	"time"
 
 	"github.com/casbin/casbin/v3"
 	"github.com/casbin/casbin/v3/persist"
@@ -33,14 +32,13 @@ type AuthorizationService interface {
 }
 
 type RBACService struct {
-	db         *gorm.DB
-	enforcer   *casbin.Enforcer
-	watcher    persist.Watcher
-	reloadMu   sync.Mutex
-	lastReload time.Time
+	db       *gorm.DB
+	enforcer *casbin.Enforcer
+	watcher  persist.WatcherEx
+	reloadMu sync.Mutex
 }
 
-func NewRBACService(cfg CasbinConfig) (*RBACService, error) {
+func newRBACService(cfg CasbinConfig) (*RBACService, error) {
 	if cfg.Host == "" || cfg.User == "" || cfg.Password == "" || cfg.DbName == "" || cfg.ConfigPath == "" || cfg.RedisAddr == "" || cfg.RedisChannel == "" {
 		return nil, fmt.Errorf("RBAC config is incomplete: missing required DB or Redis fields")
 	}
@@ -111,32 +109,32 @@ func NewRBACService(cfg CasbinConfig) (*RBACService, error) {
 	if err != nil {
 		return nil, fmt.Errorf("create redis watcher: %w", err)
 	}
-
-	type cbSetter interface {
-		SetUpdateCallback(func(string)) error
-	}
-	if setter, ok := w.(cbSetter); ok {
-		_ = setter.SetUpdateCallback(func(msg string) {
-			svc.reloadMu.Lock()
-			since := time.Since(svc.lastReload)
-			svc.reloadMu.Unlock()
-			if since < 500*time.Millisecond {
-				return
-			}
-
-			if err := svc.loadPoliciesFromDB(); err != nil {
-				slog.Error("failed to reload policies from DB on watcher callback", "err", err)
-			}
-		})
+	watcher, ok := w.(persist.WatcherEx)
+	if !ok {
+		return nil, fmt.Errorf("redis watcher does not implement persist.WatcherEx")
 	}
 
-	e.SetWatcher(w)
-	svc.watcher = w
+	if err := w.SetUpdateCallback(func(msg string) {
+		if err := svc.loadPoliciesFromDB(); err != nil {
+			slog.Error("failed to reload policies from DB on watcher callback", "err", err)
+		}
+	}); err != nil {
+		return nil, fmt.Errorf("configure redis watcher callback: %w", err)
+	}
+
+	if err := e.SetWatcher(w); err != nil {
+		return nil, fmt.Errorf("set Casbin watcher: %w", err)
+	}
+	e.EnableAutoNotifyWatcher(false)
+	svc.watcher = watcher
 
 	return svc, nil
 }
 
 func (s *RBACService) loadPoliciesFromDB() error {
+	s.reloadMu.Lock()
+	defer s.reloadMu.Unlock()
+
 	s.enforcer.ClearPolicy()
 
 	var rps []RolePermission
@@ -161,19 +159,30 @@ func (s *RBACService) loadPoliciesFromDB() error {
 
 	slog.Info("Loaded policies from DB", "count_policies", len(loadedPolicies), "policies", loadedPolicies, "count_groupings", len(loadedGroupings), "groupings", loadedGroupings)
 
-	s.reloadMu.Lock()
-	s.lastReload = time.Now().UTC()
-	s.reloadMu.Unlock()
-
 	return nil
 }
 
-func NewRBACServiceFromEnv() (*RBACService, error) {
+func NewRBACService() (*RBACService, error) {
 	cfg, err := LoadConfigFromEnv()
 	if err != nil {
 		return nil, fmt.Errorf("load RBAC config from env: %w", err)
 	}
-	return NewRBACService(cfg)
+	return newRBACService(cfg)
+}
+
+func (cs *RBACService) Close() error {
+	database, err := cs.db.DB()
+	if err != nil {
+		return err
+	}
+	err = database.Close()
+	if err != nil {
+		return err
+	}
+
+	cs.watcher.Close()
+	return nil
+
 }
 
 func (cs *RBACService) IsAuthenticated(sub string, obj string, act string) (bool, error) {
@@ -225,14 +234,11 @@ func (s *RBACService) DeleteRole(ctx context.Context, roleName string) error {
 	}
 
 	// Update Casbin cache and notify other instances via watcher
-	s.enforcer.RemoveFilteredPolicy(0, roleName)
-	if s.watcher != nil {
-		type remFiltered interface {
-			UpdateForRemoveFilteredPolicy(sec, ptype string, fieldIndex int, fieldValues ...string) error
-		}
-		if rf, ok := s.watcher.(remFiltered); ok {
-			_ = rf.UpdateForRemoveFilteredPolicy("p", "p", 0, roleName)
-		}
+	if _, err := s.enforcer.RemoveFilteredPolicy(0, roleName); err != nil {
+		return fmt.Errorf("remove role policies from enforcer: %w", err)
+	}
+	if err := s.watcher.UpdateForRemoveFilteredPolicy("p", "p", 0, roleName); err != nil {
+		return fmt.Errorf("notify role policy removal: %w", err)
 	}
 
 	return nil
@@ -338,14 +344,11 @@ func (s *RBACService) GrantPermissionToRole(ctx context.Context, roleName, resou
 		return nil, fmt.Errorf("failed to grant permission to role: %w", err)
 	}
 
-	s.enforcer.AddPolicy(roleName, resourceName, actionName)
-	if s.watcher != nil {
-		type addUpd interface {
-			UpdateForAddPolicy(sec, ptype string, params ...string) error
-		}
-		if au, ok := s.watcher.(addUpd); ok {
-			_ = au.UpdateForAddPolicy("p", "p", roleName, resourceName, actionName)
-		}
+	if _, err := s.enforcer.AddPolicy(roleName, resourceName, actionName); err != nil {
+		return nil, fmt.Errorf("add policy to enforcer: %w", err)
+	}
+	if err := s.watcher.UpdateForAddPolicy("p", "p", roleName, resourceName, actionName); err != nil {
+		return nil, fmt.Errorf("notify policy addition: %w", err)
 	}
 
 	return rp, nil
@@ -368,14 +371,11 @@ func (s *RBACService) RevokePermissionFromRole(ctx context.Context, roleName, re
 		return fmt.Errorf("failed to revoke permission: %w", err)
 	}
 
-	s.enforcer.RemovePolicy(roleName, resourceName, actionName)
-	if s.watcher != nil {
-		type remUpd interface {
-			UpdateForRemovePolicy(sec, ptype string, params ...string) error
-		}
-		if ru, ok := s.watcher.(remUpd); ok {
-			_ = ru.UpdateForRemovePolicy("p", "p", roleName, resourceName, actionName)
-		}
+	if _, err := s.enforcer.RemovePolicy(roleName, resourceName, actionName); err != nil {
+		return fmt.Errorf("remove policy from enforcer: %w", err)
+	}
+	if err := s.watcher.UpdateForRemovePolicy("p", "p", roleName, resourceName, actionName); err != nil {
+		return fmt.Errorf("notify policy removal: %w", err)
 	}
 
 	return nil
@@ -396,14 +396,11 @@ func (s *RBACService) AssignRoleToUser(ctx context.Context, userID uuid.UUID, ro
 		return fmt.Errorf("failed to assign role to user: %w", err)
 	}
 
-	s.enforcer.AddGroupingPolicy(userID.String(), roleName)
-	if s.watcher != nil {
-		type addUpd interface {
-			UpdateForAddPolicy(sec, ptype string, params ...string) error
-		}
-		if au, ok := s.watcher.(addUpd); ok {
-			_ = au.UpdateForAddPolicy("g", "g", userID.String(), roleName)
-		}
+	if _, err := s.enforcer.AddGroupingPolicy(userID.String(), roleName); err != nil {
+		return fmt.Errorf("add grouping policy to enforcer: %w", err)
+	}
+	if err := s.watcher.UpdateForAddPolicy("g", "g", userID.String(), roleName); err != nil {
+		return fmt.Errorf("notify grouping policy addition: %w", err)
 	}
 
 	return nil
@@ -415,14 +412,11 @@ func (s *RBACService) RemoveRoleFromUser(ctx context.Context, userID uuid.UUID, 
 		return fmt.Errorf("failed to remove role from user: %w", err)
 	}
 
-	s.enforcer.RemoveGroupingPolicy(userID.String(), roleName)
-	if s.watcher != nil {
-		type remUpd interface {
-			UpdateForRemovePolicy(sec, ptype string, params ...string) error
-		}
-		if ru, ok := s.watcher.(remUpd); ok {
-			_ = ru.UpdateForRemovePolicy("g", "g", userID.String(), roleName)
-		}
+	if _, err := s.enforcer.RemoveGroupingPolicy(userID.String(), roleName); err != nil {
+		return fmt.Errorf("remove grouping policy from enforcer: %w", err)
+	}
+	if err := s.watcher.UpdateForRemovePolicy("g", "g", userID.String(), roleName); err != nil {
+		return fmt.Errorf("notify grouping policy removal: %w", err)
 	}
 
 	return nil
