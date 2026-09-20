@@ -6,30 +6,22 @@ import (
 	"log/slog"
 	"time"
 	"users/internal/config"
-	"users/internal/models"
+	"users/internal/domain/storage"
+	"users/internal/infrastructure/postgres/models"
 
 	"github.com/google/uuid"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )
-
-type UsersStorage interface {
-	Open() error
-	Close() error
-	Create(ctx context.Context) error
-	Read(ctx context.Context) error
-	ReadByID(ctx context.Context, id uuid.UUID) error
-	Update(ctx context.Context) error
-	Delete(ctx context.Context, id uuid.UUID) error
-}
-
+ 
+// Realizes users/internal/domain/storage UsersStorage interface
 type UsersPostgresStorage struct {
 	config *config.Config
 	logger *slog.Logger
 	db     *gorm.DB
 }
 
-func CreateStorage(cfg *config.Config, l *slog.Logger) UsersStorage {
+func CreateStorage(cfg *config.Config, l *slog.Logger) storage.UsersStorage {
 	return &UsersPostgresStorage{
 		config: cfg,
 		logger: l,

@@ -11,8 +11,8 @@ import (
 	"time"
 
 	"users/internal/config"
-	"users/internal/http"
-	"users/internal/storage"
+	"users/internal/infrastructure/postgres/storage"
+	"users/internal/transport/http"
 )
 
 var configPath = flag.String("config", "config/config.yaml", "Path to configuration file")

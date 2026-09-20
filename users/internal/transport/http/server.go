@@ -14,8 +14,9 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 
 	"users/internal/config"
-	"users/internal/handlers"
-	"users/internal/storage"
+	"users/internal/domain/storage"
+	"users/internal/infrastructure/service"
+	"users/internal/transport/handlers"
 )
 
 type Server struct {
@@ -50,7 +51,9 @@ func (s *Server) Start() error {
 
 	s.grpcConn = conn
 
-	s.userHandler = handlers.NewUserHandler(s.grpcConn)
+	service := service.NewUsersService(s.storage)
+
+	s.userHandler = handlers.NewUserHandler(s.grpcConn, service)
 
 	router := gin.Default()
 	router.Use(middleware.GinAuthMiddleware(s.rbacService))
@@ -95,7 +98,7 @@ func (s *Server) Shutdown(ctx context.Context) error {
 
 func (s *Server) configRoutes(router *gin.Engine) {
 	g := router.Group("/api/v1/users")
-	g.GET("/", s.userHandler.Account)
+	g.GET("/", s.userHandler.Profile)
 	g.POST("/registration", s.userHandler.Registration)
-
+	g.POST("/:userId/activate", s.userHandler.Activate)
 }

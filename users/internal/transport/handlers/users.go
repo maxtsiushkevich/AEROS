@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"pkg/helpers"
 	auth "users/api/proto"
+	"users/internal/domain/service"
 
 	"github.com/gin-gonic/gin"
 	"google.golang.org/grpc"
@@ -13,11 +14,13 @@ import (
 
 type UserHandler struct {
 	grpcConn *grpc.ClientConn
+	service  service.UsersService
 }
 
-func NewUserHandler(grpcConn *grpc.ClientConn) *UserHandler {
+func NewUserHandler(grpcConn *grpc.ClientConn, service service.UsersService) *UserHandler {
 	return &UserHandler{
 		grpcConn: grpcConn,
+		service:  service,
 	}
 }
 
@@ -41,11 +44,39 @@ func (h *UserHandler) Registration(c *gin.Context) {
 	c.String(http.StatusOK, "pong")
 }
 
-func (h *UserHandler) Account(c *gin.Context) {
-	_, ok := helpers.ClaimsFromContextGin(c)
+func (h *UserHandler) Profile(c *gin.Context) {
+	claims, ok := helpers.ClaimsFromContextGin(c)
 	if !ok {
 		c.JSON(http.StatusUnauthorized, gin.H{
 			"error": "claims not found",
+		})
+		return
+	}
+
+	_, err := h.service.Profile(claims.Id)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": "failed to get profile",
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, nil)
+}
+
+func (h *UserHandler) Activate(c *gin.Context) {
+	claims, ok := helpers.ClaimsFromContextGin(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"error": "claims not found",
+		})
+		return
+	}
+
+	err := h.service.ActivateUser(claims.Id)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "failed to activate user",
 		})
 		return
 	}
