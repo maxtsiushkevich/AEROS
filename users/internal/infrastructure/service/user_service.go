@@ -2,8 +2,10 @@ package service
 
 import (
 	"context"
+	"errors"
 	"time"
 	auth "users/api/proto"
+	domain_err "users/internal/domain/errors"
 	"users/internal/domain/models"
 	"users/internal/domain/repository"
 
@@ -24,6 +26,15 @@ func NewUsersService(grpcConn *grpc.ClientConn, storage repository.UserStorage) 
 }
 
 func (s *UserService) RegisterUser(ctx context.Context, name string, email string, birthday time.Time, password string) (access *string, refresh *string, err error) {
+	existingUser, err := s.storage.FindByEmail(ctx, email)
+	if err != nil && !errors.Is(err, domain_err.ErrUserNotFound) {
+		return nil, nil, err
+	}
+	if existingUser != nil {
+
+		return nil, nil, domain_err.ErrUserAlreadyExists
+	}
+
 	u, err := models.NewUser(name, email, birthday)
 	if err != nil {
 		return nil, nil, err
@@ -65,4 +76,12 @@ func (s *UserService) ActivateUser(ctx context.Context, id uuid.UUID) error {
 
 func (s *UserService) Profile(ctx context.Context, id uuid.UUID) (*models.User, error) {
 	return s.storage.Read(ctx, id)
+}
+
+func (s *UserService) ChangeEmail(ctx context.Context, id uuid.UUID, newEmail string) error {
+	return nil
+}
+
+func (s *UserService) DeleteUser(ctx context.Context, id uuid.UUID) error {
+	return nil
 }

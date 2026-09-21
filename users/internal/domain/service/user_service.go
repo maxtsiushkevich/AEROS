@@ -15,4 +15,6 @@ type UserService interface {
 		err error)
 	ActivateUser(ctx context.Context, id uuid.UUID) error
 	Profile(ctx context.Context, id uuid.UUID) (*models.User, error)
+	ChangeEmail(ctx context.Context, id uuid.UUID, newEmail string) error
+	DeleteUser(ctx context.Context, id uuid.UUID) error
 }

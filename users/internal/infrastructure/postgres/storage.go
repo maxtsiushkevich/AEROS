@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"time"
 	"users/internal/config"
+	domain_err "users/internal/domain/errors"
 	"users/internal/domain/models"
 
 	"github.com/google/uuid"
@@ -110,4 +111,15 @@ func (s *PostgresUserStorage) Delete(ctx context.Context, id uuid.UUID) error {
 		return err
 	}
 	return nil
+}
+
+func (s *PostgresUserStorage) FindByEmail(ctx context.Context, email string) (*models.User, error) {
+	var dbUser User
+	if err := s.db.WithContext(ctx).First(&dbUser, "email = ?", email).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return nil, domain_err.ErrUserNotFound
+		}
+		return nil, err
+	}
+	return ToDomain(&dbUser), nil
 }

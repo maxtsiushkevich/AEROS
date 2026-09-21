@@ -41,6 +41,8 @@ func (h *UserHandler) Registration(c *gin.Context) {
 			errors.Is(err, domain_err.ErrBirthdayInvalid),
 			errors.Is(err, domain_err.ErrNotAdult):
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		case errors.Is(err, domain_err.ErrUserAlreadyExists):
+			c.JSON(http.StatusConflict, gin.H{"error": err.Error()})
 		default:
 			c.JSON(http.StatusInternalServerError, gin.H{
 				"error": "internal error",
