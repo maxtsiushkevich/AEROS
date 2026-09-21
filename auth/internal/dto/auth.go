@@ -6,7 +6,7 @@ type AuthRequest struct {
 }
 
 type TokensResponse struct {
-	Access_token string `json:"access_token" `
+	AccessToken string `json:"access_token"`
 }
 
 type PasswordUpdateRequest struct {

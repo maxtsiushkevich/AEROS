@@ -11,7 +11,7 @@ import (
 	"time"
 
 	"users/internal/config"
-	"users/internal/infrastructure/postgres/storage"
+	"users/internal/infrastructure/postgres"
 	"users/internal/transport/http"
 )
 
@@ -40,7 +40,7 @@ func main() {
 		return
 	}
 
-	db := storage.CreateStorage(&cfg, logger)
+	db := postgres.NewStorage(&cfg, logger)
 	if err := db.Open(); err != nil {
 		logger.Error("Failed to open database", "err", err)
 		return
@@ -57,4 +57,7 @@ func main() {
 		os.Exit(-1)
 	}
 
+	if err := db.Close(); err != nil {
+		os.Exit(-1)
+	}
 }

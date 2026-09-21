@@ -1,0 +1,11 @@
+package errors
+
+import "errors"
+
+var (
+	ErrUserAlreadyActivated = errors.New("user is already activated")
+	ErrInvalidName          = errors.New("invalid name")
+	ErrInvalidEmail         = errors.New("invalid email")
+	ErrBirthdayInvalid      = errors.New("invalid birthday date")
+	ErrNotAdult             = errors.New("not adult")
+)
