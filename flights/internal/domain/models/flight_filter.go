@@ -6,7 +6,7 @@ import (
 	_ "github.com/go-playground/validator/v10"
 )
 
-type FlightQuery struct {
+type FlightFilter struct {
 	FlightNumber *string `validate:"omitnil,max=8"`
 	Origin       *string `validate:"max=3"`
 	Destination  *string `validate:"max=3"`
@@ -16,3 +16,13 @@ type FlightQuery struct {
 	Limit        int
 	Page         int
 }
+
+// type FlightUpdate struct {
+// 	ID           uuid.UUID
+// 	FlightNumber *string
+// 	Origin       *string
+// 	Destination  *string
+// 	Date         *time.Time
+// 	Status       *models.FlightStatus
+// 	Aircraft     *string
+// }

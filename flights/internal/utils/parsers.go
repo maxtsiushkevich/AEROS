@@ -1,7 +1,7 @@
 package utils
 
 import (
-	"flights/internal/dto"
+	"flights/internal/transport/dto"
 	"net/url"
 	"strconv"
 	"time"

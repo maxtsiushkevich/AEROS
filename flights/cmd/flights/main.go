@@ -11,8 +11,8 @@ import (
 	"time"
 
 	"flights/internal/config"
-	"flights/internal/http"
-	"flights/internal/storage"
+	"flights/internal/infrastructure/postgres"
+	"flights/internal/transport/http"
 )
 
 var configPath = flag.String("config", "config/config.yaml", "Path to configuration file")
@@ -32,7 +32,7 @@ func main() {
 
 	logger := config.SetupLogger(cfg.Env)
 
-	db := storage.CreateStorage(&cfg, logger)
+	db := postgres.CreateStorage(&cfg, logger)
 	if err := db.Open(); err != nil {
 		logger.Error("Failed to open database", "err", err)
 		return

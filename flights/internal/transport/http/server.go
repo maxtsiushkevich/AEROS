@@ -4,8 +4,9 @@ import (
 	"context"
 	"errors"
 	"flights/internal/config"
-	"flights/internal/handlers"
-	"flights/internal/storage"
+	"flights/internal/domain/repository"
+	"flights/internal/infrastructure/service"
+	"flights/internal/transport/handlers"
 	"log/slog"
 	"net"
 	"net/http"
@@ -17,12 +18,12 @@ type Server struct {
 	config  *config.Config
 	server  *http.Server
 	logger  *slog.Logger
-	storage storage.FlightsStorage
+	storage repository.FlightsStorage
 
 	flights *handlers.FlightHandler
 }
 
-func CreateServer(cfg *config.Config, l *slog.Logger, db storage.FlightsStorage) *Server {
+func CreateServer(cfg *config.Config, l *slog.Logger, db repository.FlightsStorage) *Server {
 	return &Server{
 		config:  cfg,
 		logger:  l,
@@ -37,7 +38,10 @@ func (s *Server) Start() error {
 	}
 
 	var err error
-	s.flights, err = handlers.NewFlightHandler(s.storage)
+
+	svc := service.NewFlightService(s.storage)
+
+	s.flights, err = handlers.NewFlightHandler(s.storage, svc)
 
 	if err != nil {
 		s.logger.Error("Connection to DB failed", "err", err)
@@ -86,8 +90,9 @@ func (s *Server) configureRouter(router *http.ServeMux) {
 
 	router.HandleFunc("GET /api/v1/flights", mw.Apply(s.flights.HandleGetFlights()))
 	router.HandleFunc("POST /api/v1/flights", mw.Apply(s.flights.HandleCreateFlight()))
-	router.HandleFunc("PATCH /api/v1/flights", mw.Apply(s.flights.HandlePatchFlight()))
 	router.HandleFunc("DELETE /api/v1/flights", mw.Apply(s.flights.HandleDeleteFlight()))
+
+	router.HandleFunc("PATCH /api/v1/flights/{flight_id}/cancel", nil)
 
 	s.logger.Info("Router configured")
 }
