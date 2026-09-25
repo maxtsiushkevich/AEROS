@@ -45,3 +45,11 @@ func NewFlight(flightNumber string,
 		Aircraft:     aircraft,
 	}
 }
+
+func (f *Flight) Cancel() bool {
+	if f.Status != Arrived && f.Status != Departed && f.Status != Cancelled {
+		f.Status = Cancelled
+		return true
+	}
+	return false
+}

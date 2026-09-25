@@ -88,7 +88,7 @@ func (s *PostgresUserStorage) Read(ctx context.Context, id uuid.UUID) (*models.U
 	var dbUser User
 	if err := s.db.WithContext(ctx).First(&dbUser, "id = ?", id).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
-			return nil, fmt.Errorf("user not found: %w", err)
+			return nil, domain_err.ErrUserNotFound
 		}
 		s.logger.Error("Failed to read user", "err", err, "id", id)
 		return nil, err

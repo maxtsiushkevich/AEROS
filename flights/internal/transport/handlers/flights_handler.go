@@ -2,16 +2,20 @@ package handlers
 
 import (
 	"encoding/json"
+	"errors"
+	domain_err "flights/internal/domain/errors"
 	"flights/internal/domain/models"
 	"flights/internal/domain/repository"
 	"flights/internal/domain/service"
 	"flights/internal/transport/dto"
 	"flights/internal/utils"
+	"fmt"
 	"net/http"
 	"pkg/httperr"
 	"pkg/httpresp"
 
 	"github.com/go-playground/validator/v10"
+	"github.com/google/uuid"
 )
 
 type FlightHandler struct {
@@ -47,7 +51,12 @@ func (h *FlightHandler) HandleGetFlights() http.HandlerFunc {
 
 		flights, err := h.service.GetFlights(ctx, req.ToFlightFilter())
 		if err != nil {
-			httperr.Write(w, http.StatusNotFound, "Flights not found")
+			switch {
+			case errors.Is(err, domain_err.ErrFlightNotFound):
+				httperr.Write(w, http.StatusNotFound, "Flights not found")
+			default:
+				httperr.Write(w, http.StatusNotFound, "Flights not found")
+			}
 			return
 		}
 
@@ -92,25 +101,85 @@ func (h *FlightHandler) HandleCreateFlight() http.HandlerFunc {
 
 func (h *FlightHandler) HandleDeleteFlight() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		// ctx := r.Context()
+		ctx := r.Context()
 
-		// id, err := uuid.Parse(r.URL.Query().Get("id"))
-		// if err != nil {
-		// 	httperr.Write(w, http.StatusBadRequest, "Failed to parse query param `id`. Should be UUID")
-		// 	return
-		// }
+		id, err := uuid.Parse(r.PathValue("id"))
+		if err != nil {
+			httperr.Write(w, http.StatusBadRequest, "Failed to parse query param `id`. Should be UUID")
+			return
+		}
 
-		// err = h.service.DeleteFlight(ctx, id)
-		// if err != nil {
-		// 	if errors_pkg.Is(err, errors.FlightNotFoundError) {
-		// 		httperr.Write(w, http.StatusNotFound, fmt.Sprintf("Flight with id=%s not found", id))
-		// 		return
-		// 	}
+		err = h.service.DeleteFlight(ctx, id)
+		if err != nil {
+			if errors.Is(err, domain_err.ErrFlightNotFound) {
+				httperr.Write(w, http.StatusNotFound, fmt.Sprintf("Flight with id=%s not found", id))
+				return
+			}
 
-		// 	httperr.Write(w, http.StatusInternalServerError, "Failed to delete flight")
-		// 	return
-		// }
+			httperr.Write(w, http.StatusInternalServerError, "Failed to delete flight")
+			return
+		}
 
-		// w.WriteHeader(http.StatusNoContent)
+		w.WriteHeader(http.StatusNoContent)
 	}
 }
+
+func (h *FlightHandler) HandleCancelFlight() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		ctx := r.Context()
+
+		id, err := uuid.Parse(r.PathValue("id"))
+		if err != nil {
+			httperr.Write(w, http.StatusBadRequest, "Failed to parse param `id`. Should be UUID")
+			return
+		}
+
+		err = h.service.CancelFlight(ctx, id)
+		if err != nil {
+			switch {
+			case errors.Is(err, domain_err.ErrFlightNotFound):
+				httperr.Write(w, http.StatusNotFound, "Flight not found")
+			default:
+				httperr.Write(w, http.StatusInternalServerError, "internal server error")
+			}
+		}
+
+		httpresp.OK(w, map[string]string{"message": "flight cancelled"})
+	}
+}
+
+// func (h *FlightHandler) HandleRescheduleFlight() http.HandlerFunc {
+// 	return func(w http.ResponseWriter, r *http.Request) {
+// 		ctx := r.Context()
+
+// 		id, err := uuid.Parse(r.PathValue("id"))
+// 		if err != nil {
+// 			httperr.Write(w, http.StatusBadRequest, "Failed to parse param `id`. Should be UUID")
+// 			return
+// 		}
+// 	}
+// }
+
+// func (h *FlightHandler) HandleRedirectFlight() http.HandlerFunc {
+// 	return func(w http.ResponseWriter, r *http.Request) {
+// 		ctx := r.Context()
+
+// 		id, err := uuid.Parse(r.PathValue("id"))
+// 		if err != nil {
+// 			httperr.Write(w, http.StatusBadRequest, "Failed to parse param `id`. Should be UUID")
+// 			return
+// 		}
+// 	}
+// }
+
+// func (h *FlightHandler) HandleChangeStatus() http.HandlerFunc {
+// 	return func(w http.ResponseWriter, r *http.Request) {
+// 		ctx := r.Context()
+
+// 		id, err := uuid.Parse(r.PathValue("id"))
+// 		if err != nil {
+// 			httperr.Write(w, http.StatusBadRequest, "Failed to parse param `id`. Should be UUID")
+// 			return
+// 		}
+// 	}
+// }

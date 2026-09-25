@@ -45,19 +45,32 @@ func (s *FlightService) CreateFlight(ctx context.Context, flightNumber string,
 }
 
 func (s *FlightService) UpdateFlight(ctx context.Context, flight *models.Flight) (*models.Flight, error) {
-	return nil, nil
-	// updatedFlight, err := s.storage.Update(ctx, flight)
-	// if err != nil {
-	// 	return nil, err
-	// }
-	// return updatedFlight, nil
+	updated, err := s.storage.Update(ctx, flight)
+	if err != nil {
+		return nil, err
+	}
+	return updated, nil
 }
 
 func (s *FlightService) DeleteFlight(ctx context.Context, id uuid.UUID) error {
+	err := s.storage.Delete(ctx, id)
+	if err != nil {
+		return err
+	}
 	return nil
-	// err := s.storage.Delete(ctx, id)
-	// if err != nil {
-	// 	return err
-	// }
-	// return nil
+}
+
+func (s *FlightService) CancelFlight(ctx context.Context, id uuid.UUID) error {
+	flight, err := s.storage.ReadById(ctx, id)
+	if err != nil {
+		return err
+	}
+	if flight.Cancel() {
+		_, err = s.storage.Update(ctx, flight)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }

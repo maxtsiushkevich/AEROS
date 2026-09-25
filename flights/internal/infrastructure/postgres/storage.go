@@ -2,7 +2,9 @@ package postgres
 
 import (
 	"context"
+	"errors"
 	"flights/internal/config"
+	domain_err "flights/internal/domain/errors"
 	"flights/internal/domain/models"
 	"fmt"
 	"log/slog"
@@ -79,7 +81,6 @@ func (s *PostgresFlightsStorage) Create(ctx context.Context, flight *models.Flig
 }
 
 func (s *PostgresFlightsStorage) Read(ctx context.Context, filter *models.FlightFilter) ([]models.Flight, error) {
-	// return nil, nil
 	var flights []models.Flight
 	query := s.db.WithContext(ctx)
 
@@ -119,6 +120,9 @@ func (s *PostgresFlightsStorage) Read(ctx context.Context, filter *models.Flight
 	}
 
 	if err := query.Find(&flights).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return nil, domain_err.ErrFlightNotFound
+		}
 		s.logger.Error("Failed to read flights", "err", err)
 		return nil, err
 	}
@@ -127,59 +131,55 @@ func (s *PostgresFlightsStorage) Read(ctx context.Context, filter *models.Flight
 }
 
 func (s *PostgresFlightsStorage) Update(ctx context.Context, flight *models.Flight) (*models.Flight, error) {
-	return nil, nil
+	if flight == nil {
+		return nil, fmt.Errorf("flight is nil")
+	}
 
-	// if flight == nil {
-	// 	return nil, errors_pkg.New("flight update data is nil")
-	// }
+	var existing Flight
+	if err := s.db.WithContext(ctx).First(&existing, "id = ?", flight.Id).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, domain_err.ErrFlightNotFound
+		}
+		return nil, fmt.Errorf("failed to fetch flight for update: %w", err)
+	}
 
-	// var existing Flight
-	// if err := s.db.WithContext(ctx).First(&existing, "id = ?", flight.ID).Error; err != nil {
-	// 	if errors_pkg.Is(err, gorm.ErrRecordNotFound) {
-	// 		return nil, errors.FlightNotFoundError
-	// 	}
-	// 	return nil, fmt.Errorf("failed to fetch flight for update: %w", err)
-	// }
+	DomainToDB(flight, &existing)
 
-	// if flight.FlightNumber != nil {
-	// 	existing.FlightNumber = *flight.FlightNumber
-	// }
-	// if flight.Origin != nil {
-	// 	existing.Origin = *flight.Origin
-	// }
-	// if flight.Destination != nil {
-	// 	existing.Destination = *flight.Destination
-	// }
-	// if flight.Date != nil {
-	// 	existing.Date = *flight.Date
-	// }
-	// if flight.Status != nil {
-	// 	existing.Status = *flight.Status
-	// }
-	// if flight.Aircraft != nil {
-	// 	existing.Aircraft = *flight.Aircraft
-	// }
+	result := s.db.WithContext(ctx).
+		Model(&Flight{}).
+		Where("id = ?", flight.Id).
+		Updates(existing)
 
-	// if err := s.db.WithContext(ctx).Save(&existing).Error; err != nil {
-	// 	return nil, fmt.Errorf("failed to update flight in db: %w", err)
-	// }
+	if result.Error != nil {
+		return nil, fmt.Errorf("failed to update flight in db: %w", result.Error)
+	}
 
-	// return &existing, nil
+	if result.RowsAffected == 0 {
+		return nil, domain_err.ErrFlightNotFound
+	}
+
+	return ToDomain(&existing), nil
 }
 
 func (s *PostgresFlightsStorage) Delete(ctx context.Context, id uuid.UUID) error {
-	return nil
-	// result := s.db.WithContext(ctx).Where("id = ?", id).Delete(&Flight{})
-	// if result.Error != nil {
-	// 	return fmt.Errorf("failed to delete flight in db: %w", result.Error)
-	// }
-	// if result.RowsAffected == 0 {
-	// 	return errors.FlightNotFoundError
-	// }
+	result := s.db.WithContext(ctx).Where("id = ?", id).Delete(&Flight{})
+	if result.Error != nil {
+		return fmt.Errorf("failed to delete flight in db: %w", result.Error)
+	}
+	if result.RowsAffected == 0 {
+		return domain_err.ErrFlightNotFound
+	}
 
-	// return nil
+	return nil
 }
 
 func (s *PostgresFlightsStorage) ReadById(ctx context.Context, id uuid.UUID) (*models.Flight, error) {
-	return nil, nil
+	var dbFlight Flight
+	if err := s.db.WithContext(ctx).First(&dbFlight, "id = ?", id).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return nil, domain_err.ErrFlightNotFound
+		}
+		s.logger.Error("Flight not found", "id", id)
+	}
+	return ToDomain(&dbFlight), nil
 }
