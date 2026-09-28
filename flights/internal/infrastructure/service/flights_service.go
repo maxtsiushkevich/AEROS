@@ -74,3 +74,41 @@ func (s *FlightService) CancelFlight(ctx context.Context, id uuid.UUID) error {
 
 	return nil
 }
+
+func (s *FlightService) RescheduleFlight(ctx context.Context, id uuid.UUID, newDate time.Time) error {
+	f, err := s.storage.ReadById(ctx, id)
+	if err != nil {
+		return err
+	}
+
+	err = f.Reschedule(newDate)
+	if err != nil {
+		return err
+	}
+
+	_, err = s.storage.Update(ctx, f)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (s *FlightService) ChangeStatus(ctx context.Context, id uuid.UUID, status string) error {
+	f, err := s.storage.ReadById(ctx, id)
+	if err != nil {
+		return err
+	}
+
+	err = f.ChangeStatus(status)
+	if err != nil {
+		return err
+	}
+
+	_, err = s.storage.Update(ctx, f)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}

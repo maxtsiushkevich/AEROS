@@ -1,6 +1,7 @@
 package models
 
 import (
+	"flights/internal/domain/errors"
 	"time"
 
 	"github.com/google/uuid"
@@ -52,4 +53,26 @@ func (f *Flight) Cancel() bool {
 		return true
 	}
 	return false
+}
+
+func (f *Flight) Reschedule(newDate time.Time) error {
+	if !newDate.After(time.Now()) {
+		return errors.ErrIncorrectFlightTime
+	}
+
+	if newDate.After(f.Date) {
+		f.Status = Delayed
+	}
+
+	f.Date = newDate
+	return nil
+}
+
+func (f *Flight) ChangeStatus(status string) error {
+	if !IsValidFlightStatus(status) {
+		return errors.ErrInvalidFlightStatus
+	}
+
+	f.Status = FlightStatus(status)
+	return nil
 }

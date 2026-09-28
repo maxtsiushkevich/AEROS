@@ -55,7 +55,7 @@ func (h *FlightHandler) HandleGetFlights() http.HandlerFunc {
 			case errors.Is(err, domain_err.ErrFlightNotFound):
 				httperr.Write(w, http.StatusNotFound, "Flights not found")
 			default:
-				httperr.Write(w, http.StatusNotFound, "Flights not found")
+				httperr.Write(w, http.StatusInternalServerError, "internal server error")
 			}
 			return
 		}
@@ -112,7 +112,7 @@ func (h *FlightHandler) HandleDeleteFlight() http.HandlerFunc {
 		err = h.service.DeleteFlight(ctx, id)
 		if err != nil {
 			if errors.Is(err, domain_err.ErrFlightNotFound) {
-				httperr.Write(w, http.StatusNotFound, fmt.Sprintf("Flight with id=%s not found", id))
+				w.WriteHeader(http.StatusNoContent)
 				return
 			}
 
@@ -148,38 +148,79 @@ func (h *FlightHandler) HandleCancelFlight() http.HandlerFunc {
 	}
 }
 
-// func (h *FlightHandler) HandleRescheduleFlight() http.HandlerFunc {
-// 	return func(w http.ResponseWriter, r *http.Request) {
-// 		ctx := r.Context()
+func (h *FlightHandler) HandleRescheduleFlight() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		ctx := r.Context()
 
-// 		id, err := uuid.Parse(r.PathValue("id"))
-// 		if err != nil {
-// 			httperr.Write(w, http.StatusBadRequest, "Failed to parse param `id`. Should be UUID")
-// 			return
-// 		}
-// 	}
-// }
+		id, err := uuid.Parse(r.PathValue("id"))
+		if err != nil {
+			httperr.Write(w, http.StatusBadRequest, "Failed to parse param `id`. Should be UUID")
+			return
+		}
 
-// func (h *FlightHandler) HandleRedirectFlight() http.HandlerFunc {
-// 	return func(w http.ResponseWriter, r *http.Request) {
-// 		ctx := r.Context()
+		req := &dto.RescheduleFlightRequest{}
+		if err := json.NewDecoder(r.Body).Decode(req); err != nil {
+			httperr.Write(w, http.StatusBadRequest, "Invalid JSON body")
+			return
+		}
 
-// 		id, err := uuid.Parse(r.PathValue("id"))
-// 		if err != nil {
-// 			httperr.Write(w, http.StatusBadRequest, "Failed to parse param `id`. Should be UUID")
-// 			return
-// 		}
-// 	}
-// }
+		if err := h.validator.Struct(req); err != nil {
+			httperr.Write(w, http.StatusBadRequest, err.Error())
+			return
+		}
 
-// func (h *FlightHandler) HandleChangeStatus() http.HandlerFunc {
-// 	return func(w http.ResponseWriter, r *http.Request) {
-// 		ctx := r.Context()
+		err = h.service.RescheduleFlight(ctx, id, req.NewDate)
+		if err != nil {
+			switch {
+			case errors.Is(err, domain_err.ErrFlightNotFound):
+				httperr.Write(w, http.StatusNotFound, "flights not found")
+			case errors.Is(err, domain_err.ErrIncorrectFlightTime):
+				httperr.Write(w, http.StatusBadRequest, "new time in future")
+			default:
+				httperr.Write(w, http.StatusInternalServerError, "internal server error")
+			}
+			return
+		}
 
-// 		id, err := uuid.Parse(r.PathValue("id"))
-// 		if err != nil {
-// 			httperr.Write(w, http.StatusBadRequest, "Failed to parse param `id`. Should be UUID")
-// 			return
-// 		}
-// 	}
-// }
+		httpresp.OK(w, map[string]string{"message": fmt.Sprintf("flight rescheduled to %s", req.NewDate)})
+	}
+}
+
+func (h *FlightHandler) HandleChangeStatus() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		ctx := r.Context()
+
+		id, err := uuid.Parse(r.PathValue("id"))
+		if err != nil {
+			httperr.Write(w, http.StatusBadRequest, "Failed to parse param `id`. Should be UUID")
+			return
+		}
+
+		req := &dto.ChangeStatusRequest{}
+		if err := json.NewDecoder(r.Body).Decode(req); err != nil {
+			httperr.Write(w, http.StatusBadRequest, "Invalid JSON body")
+			return
+		}
+
+		if err := h.validator.Struct(req); err != nil {
+			httperr.Write(w, http.StatusBadRequest, err.Error())
+			return
+		}
+
+		err = h.service.ChangeStatus(ctx, id, req.Status)
+
+		if err != nil {
+			switch {
+			case errors.Is(err, domain_err.ErrFlightNotFound):
+				httperr.Write(w, http.StatusNotFound, "flights not found")
+			case errors.Is(err, domain_err.ErrInvalidFlightStatus):
+				httperr.Write(w, http.StatusBadRequest, "invalid flight")
+			default:
+				httperr.Write(w, http.StatusInternalServerError, "internal server error")
+			}
+			return
+		}
+
+		httpresp.OK(w, map[string]string{"message": fmt.Sprintf("flight status changed to %s", req.Status)})
+	}
+}

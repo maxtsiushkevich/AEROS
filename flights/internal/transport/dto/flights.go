@@ -3,6 +3,7 @@ package dto
 import (
 	"time"
 
+	_ "github.com/go-playground/validator/v10"
 	"github.com/google/uuid"
 )
 
@@ -18,6 +19,14 @@ type GetFlightsRequestQuery struct {
 	Page  int `validate:"omitempty,min=1"`
 }
 
+type RescheduleFlightRequest struct {
+	NewDate time.Time `json:"new_date" validate:"required"`
+}
+
+type ChangeStatusRequest struct {
+	Status string `json:"new_status,omitempty" validate:"omitempty,oneof=Scheduled CheckIn Boarding Delayed Departed Arrived Cancelled Redirected"`
+}
+
 type CreateFlightRequest struct {
 	FlightNumber string    `json:"flight_number" validate:"required,max=8"`
 	Origin       string    `json:"origin" validate:"required,len=3,alpha"`
@@ -25,16 +34,6 @@ type CreateFlightRequest struct {
 	Date         time.Time `json:"date" validate:"required,gt=now"`
 	Status       string    `json:"status,omitempty" validate:"omitempty,oneof=Scheduled CheckIn Boarding Delayed Departed Arrived Cancelled Redirected"`
 	Aircraft     string    `json:"aircraft" validate:"required,gt=0"`
-}
-
-type PatchFlightRequest struct {
-	ID           uuid.UUID  `json:"id" validate:"required"`
-	FlightNumber *string    `json:"flight_number,omitempty" validate:"omitempty,max=8"`
-	Origin       *string    `json:"origin,omitempty" validate:"omitempty,len=3,alpha"`
-	Destination  *string    `json:"destination,omitempty" validate:"omitempty,len=3,alpha"`
-	Date         *time.Time `json:"date,omitempty" validate:"omitempty"`
-	Status       *string    `json:"status,omitempty" validate:"omitempty"`
-	Aircraft     *string    `json:"aircraft,omitempty" validate:"omitempty,gt=0"`
 }
 
 type FlightResponse struct {

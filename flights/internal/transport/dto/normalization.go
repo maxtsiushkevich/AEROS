@@ -21,14 +21,6 @@ func (r *CreateFlightRequest) Normalize() {
 	r.Aircraft = strings.TrimSpace(r.Aircraft)
 }
 
-func (r *PatchFlightRequest) Normalize() {
-	r.FlightNumber = trimUpper(r.FlightNumber)
-	r.Origin = trimUpper(r.Origin)
-	r.Destination = trimUpper(r.Destination)
-	r.Aircraft = trim(r.Aircraft)
-	r.Status = trim(r.Status)
-}
-
 func trim(s *string) *string {
 	if s == nil {
 		return nil

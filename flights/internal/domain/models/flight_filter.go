@@ -16,13 +16,3 @@ type FlightFilter struct {
 	Limit        int
 	Page         int
 }
-
-// type FlightUpdate struct {
-// 	ID           uuid.UUID
-// 	FlightNumber *string
-// 	Origin       *string
-// 	Destination  *string
-// 	Date         *time.Time
-// 	Status       *models.FlightStatus
-// 	Aircraft     *string
-// }

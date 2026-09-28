@@ -93,9 +93,8 @@ func (s *Server) configureRouter(router *http.ServeMux) {
 	router.HandleFunc("DELETE /api/v1/flights/{id}", mw.Apply(s.flights.HandleDeleteFlight()))
 
 	router.HandleFunc("POST /api/v1/flights/{id}/cancel", mw.Apply(s.flights.HandleCancelFlight()))
-	// router.HandleFunc("POST /api/v1/flights/{id}/reschedule", nil)
-	// router.HandleFunc("POST /api/v1/flights/{id}/redirect", nil)
-	// router.HandleFunc("POST /api/v1/flights/{id}/status", nil)
+	router.HandleFunc("POST /api/v1/flights/{id}/reschedule", mw.Apply(s.flights.HandleRescheduleFlight()))
+	router.HandleFunc("POST /api/v1/flights/{id}/status", mw.Apply(s.flights.HandleChangeStatus()))
 
 	s.logger.Info("Router configured")
 }
