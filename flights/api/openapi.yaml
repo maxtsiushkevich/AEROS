@@ -2,7 +2,7 @@ openapi: 3.0.3
 info:
   title: Flights API
   version: 1.0.0
-  description: HTTP API for searching, creating, updating, and deleting flights.
+  description: HTTP API for searching, creating, deleting, cancelling, rescheduling, and updating flight status.
 servers:
   - url: http://localhost:3000
     description: Local server
@@ -22,7 +22,7 @@ paths:
         - $ref: '#/components/parameters/DestinationQuery'
         - name: status
           in: query
-          description: Exact status filter.
+          description: Exact flight status filter.
           schema:
             $ref: '#/components/schemas/FlightStatus'
         - name: date_from
@@ -71,7 +71,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/FlightResponseEnvelope'
+                $ref: '#/components/schemas/FlightResponse'
         '400':
           $ref: '#/components/responses/BadRequest'
         '500':
@@ -81,57 +81,19 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
-    patch:
-      tags:
-        - Flights
-      summary: Update a flight
-      operationId: updateFlight
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/PatchFlightRequest'
-      responses:
-        '200':
-          description: Flight updated successfully.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/FlightResponseEnvelope'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '404':
-          description: Flight was not found.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '500':
-          description: Flight could not be updated.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-
+  /api/v1/flights/{id}:
     delete:
       tags:
         - Flights
       summary: Delete a flight
       operationId: deleteFlight
       parameters:
-        - name: id
-          in: query
-          description: UUID of the flight to delete.
-          required: true
-          schema:
-            type: string
-            format: uuid
+        - $ref: '#/components/parameters/FlightIDPath'
       responses:
         '204':
           description: Flight deleted successfully.
         '400':
-          description: The id query parameter is missing or is not a UUID.
+          description: The flight id is missing or not a UUID.
           content:
             application/json:
               schema:
@@ -149,8 +111,118 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
+  /api/v1/flights/{id}/cancel:
+    post:
+      tags:
+        - Flights
+      summary: Cancel a flight
+      operationId: cancelFlight
+      parameters:
+        - $ref: '#/components/parameters/FlightIDPath'
+      responses:
+        '200':
+          description: Flight cancelled.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActionResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          description: Flight was not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Flight could not be cancelled.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/flights/{id}/reschedule:
+    post:
+      tags:
+        - Flights
+      summary: Reschedule a flight
+      operationId: rescheduleFlight
+      parameters:
+        - $ref: '#/components/parameters/FlightIDPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RescheduleFlightRequest'
+      responses:
+        '200':
+          description: Flight rescheduled.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActionResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          description: Flight was not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Flight could not be rescheduled.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/flights/{id}/status:
+    post:
+      tags:
+        - Flights
+      summary: Change a flight status
+      operationId: changeFlightStatus
+      parameters:
+        - $ref: '#/components/parameters/FlightIDPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChangeStatusRequest'
+      responses:
+        '200':
+          description: Flight status changed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActionResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          description: Flight was not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Flight status could not be changed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
 components:
   parameters:
+    FlightIDPath:
+      name: id
+      in: path
+      required: true
+      description: UUID of the flight.
+      schema:
+        type: string
+        format: uuid
     FlightNumberQuery:
       name: flight_number
       in: query
@@ -273,42 +345,25 @@ components:
         aircraft:
           type: string
 
-    PatchFlightRequest:
+    RescheduleFlightRequest:
       type: object
       required:
-        - id
+        - new_date
       properties:
-        id:
-          type: string
-          format: uuid
-        flight_number:
-          type: string
-          maxLength: 8
-        origin:
-          type: string
-          minLength: 3
-          maxLength: 3
-          pattern: '^[A-Za-z]{3}$'
-        destination:
-          type: string
-          minLength: 3
-          maxLength: 3
-          pattern: '^[A-Za-z]{3}$'
-        date:
+        new_date:
           type: string
           format: date-time
-        status:
-          $ref: '#/components/schemas/FlightStatus'
-        aircraft:
-          type: string
 
-    FlightResponseEnvelope:
+    ChangeStatusRequest:
       type: object
       required:
-        - data
+        - new_status
       properties:
-        data:
-          $ref: '#/components/schemas/Flight'
+        new_status:
+          $ref: '#/components/schemas/FlightStatus'
+
+    FlightResponse:
+      $ref: '#/components/schemas/Flight'
 
     FlightListResponse:
       type: object
@@ -337,6 +392,14 @@ components:
           minimum: 1
           maximum: 100
 
+    ActionResponse:
+      type: object
+      required:
+        - message
+      properties:
+        message:
+          type: string
+
     ErrorResponse:
       type: object
       required:
@@ -347,7 +410,7 @@ components:
 
   responses:
     BadRequest:
-      description: Invalid JSON, date, UUID, or request field.
+      description: Invalid JSON, UUID, date, or request field.
       content:
         application/json:
           schema:
