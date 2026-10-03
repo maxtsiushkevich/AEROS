@@ -3,64 +3,25 @@ package postgres
 import (
 	"context"
 	"errors"
-	"flights/internal/config"
 	domain_err "flights/internal/domain/errors"
 	"flights/internal/domain/models"
 	"fmt"
 	"log/slog"
-	"time"
 
 	"github.com/google/uuid"
-	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )
 
 type PostgresFlightsStorage struct {
-	config *config.Config
 	logger *slog.Logger
 	db     *gorm.DB
 }
 
-func CreateFlightsStorage(cfg *config.Config, l *slog.Logger) *PostgresFlightsStorage {
+func CreateFlightsStorage(db *gorm.DB, l *slog.Logger) *PostgresFlightsStorage {
 	return &PostgresFlightsStorage{
-		config: cfg,
+		db:     db,
 		logger: l,
 	}
-}
-
-func (s *PostgresFlightsStorage) Open() error {
-	connString := fmt.Sprintf("postgres://%s:%s@%s/%s",
-		s.config.Database.User,
-		s.config.Database.Password,
-		s.config.Database.Address,
-		s.config.Database.DbName)
-
-	var err error
-
-	s.db, err = gorm.Open(postgres.Open(connString), &gorm.Config{})
-	s.logger.Debug("Open db connect", "connString", connString)
-	if err != nil {
-		return err
-	}
-
-	pool, _ := s.db.DB()
-
-	pool.SetMaxOpenConns(5)
-	pool.SetMaxIdleConns(5)
-	pool.SetConnMaxLifetime(30 * time.Second)
-	pool.SetConnMaxIdleTime(15 * time.Second)
-
-	return nil
-}
-
-func (s *PostgresFlightsStorage) Close() error {
-	database, err := s.db.DB()
-	if err != nil {
-		return err
-	}
-	database.Close()
-	s.logger.Info("Database connection closed", "err", err)
-	return nil
 }
 
 func (s *PostgresFlightsStorage) Create(ctx context.Context, flight *models.Flight) (*models.Flight, error) {

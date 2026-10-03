@@ -13,7 +13,7 @@ services:
       timeout: 5s
       retries: 5
     networks:
-      - auth_network
+      - aeros_network
     restart: unless-stopped
 
   redis-insight:
@@ -26,9 +26,25 @@ services:
     depends_on:
       - redis
     networks:
-      - auth_network
+      - aeros_network
     restart: unless-stopped
 
+  postgres:
+    image: postgres:16
+    container_name: postgres
+    restart: always
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: flights
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: "123"
+      PGDATA: /var/lib/postgresql/data
+    volumes:
+      - ./postgres_data:/var/lib/postgresql/data
+    networks:
+      - aeros_network
+
 networks:
-  auth_network:
+  aeros_network:
     driver: bridge

@@ -5,7 +5,7 @@ import (
 	"errors"
 	"flights/internal/config"
 	"flights/internal/domain/repository"
-	"flights/internal/infrastructure/service"
+	infra "flights/internal/infrastructure/usecase"
 	"flights/internal/transport/handlers"
 	"log/slog"
 	"net"
@@ -15,19 +15,21 @@ import (
 )
 
 type Server struct {
-	config  *config.Config
-	server  *http.Server
-	logger  *slog.Logger
-	storage repository.FlightRepository
+	config         *config.Config
+	server         *http.Server
+	logger         *slog.Logger
+	flightsStorage repository.FlightRepository
+	cargoStorage   repository.CargoRepository
 
 	flights *handlers.FlightHandler
 }
 
-func CreateServer(cfg *config.Config, l *slog.Logger, db repository.FlightRepository) *Server {
+func CreateServer(cfg *config.Config, l *slog.Logger, flight_db repository.FlightRepository, cargo_db repository.CargoRepository) *Server {
 	return &Server{
-		config:  cfg,
-		logger:  l,
-		storage: db,
+		config:         cfg,
+		logger:         l,
+		flightsStorage: flight_db,
+		cargoStorage:   cargo_db,
 	}
 }
 
@@ -39,9 +41,9 @@ func (s *Server) Start() error {
 
 	var err error
 
-	svc := service.NewFlightService(s.storage)
+	flightUseCase := infra.NewFlightUseCase(s.flightsStorage, s.cargoStorage)
 
-	s.flights, err = handlers.NewFlightHandler(s.storage, svc)
+	s.flights, err = handlers.NewFlightHandler(s.flightsStorage, flightUseCase)
 
 	if err != nil {
 		s.logger.Error("Connection to DB failed", "err", err)

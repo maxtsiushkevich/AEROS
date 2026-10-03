@@ -3,10 +3,10 @@ package handlers
 import (
 	"encoding/json"
 	"errors"
+	usecase "flights/internal/application/usecase"
 	domain_err "flights/internal/domain/errors"
 	"flights/internal/domain/models"
 	"flights/internal/domain/repository"
-	"flights/internal/domain/service"
 	"flights/internal/transport/dto"
 	"flights/internal/utils"
 	"fmt"
@@ -19,16 +19,16 @@ import (
 )
 
 type FlightHandler struct {
-	storage    repository.FlightRepository
-	flight_srv service.FlightService
-	validator  *validator.Validate
+	storage       repository.FlightRepository
+	flightUseCase usecase.FlightUseCase
+	validator     *validator.Validate
 }
 
-func NewFlightHandler(storage repository.FlightRepository, service service.FlightService) (*FlightHandler, error) {
+func NewFlightHandler(storage repository.FlightRepository, useCase usecase.FlightUseCase) (*FlightHandler, error) {
 	return &FlightHandler{
-		storage:    storage,
-		flight_srv: service,
-		validator:  validator.New(),
+		storage:       storage,
+		flightUseCase: useCase,
+		validator:     validator.New(),
 	}, nil
 }
 
@@ -49,7 +49,7 @@ func (h *FlightHandler) HandleGetFlights() http.HandlerFunc {
 			return
 		}
 
-		flights, err := h.flight_srv.GetFlights(ctx, req.ToFlightFilter())
+		flights, err := h.flightUseCase.GetFlights(ctx, req.ToFlightFilter())
 		if err != nil {
 			switch {
 			case errors.Is(err, domain_err.ErrFlightNotFound):
@@ -88,7 +88,7 @@ func (h *FlightHandler) HandleCreateFlight() http.HandlerFunc {
 			return
 		}
 
-		created, err := h.flight_srv.CreateFlight(ctx, req.FlightNumber, req.Origin, req.Destination, req.Date, models.FlightStatus(req.Status), req.Aircraft)
+		created, err := h.flightUseCase.CreateFlight(ctx, req.FlightNumber, req.Origin, req.Destination, req.Date, models.FlightStatus(req.Status), req.Aircraft)
 		if err != nil {
 			httperr.Write(w, http.StatusInternalServerError, "Failed to create flight")
 			return
@@ -109,7 +109,7 @@ func (h *FlightHandler) HandleDeleteFlight() http.HandlerFunc {
 			return
 		}
 
-		err = h.flight_srv.DeleteFlight(ctx, id)
+		err = h.flightUseCase.DeleteFlight(ctx, id)
 		if err != nil {
 			if errors.Is(err, domain_err.ErrFlightNotFound) {
 				w.WriteHeader(http.StatusNoContent)
@@ -134,7 +134,7 @@ func (h *FlightHandler) HandleCancelFlight() http.HandlerFunc {
 			return
 		}
 
-		err = h.flight_srv.CancelFlight(ctx, id)
+		err = h.flightUseCase.CancelFlight(ctx, id)
 		if err != nil {
 			switch {
 			case errors.Is(err, domain_err.ErrFlightNotFound):
@@ -169,7 +169,7 @@ func (h *FlightHandler) HandleRescheduleFlight() http.HandlerFunc {
 			return
 		}
 
-		err = h.flight_srv.RescheduleFlight(ctx, id, req.NewDate)
+		err = h.flightUseCase.RescheduleFlight(ctx, id, req.NewDate)
 		if err != nil {
 			switch {
 			case errors.Is(err, domain_err.ErrFlightNotFound):
@@ -207,7 +207,7 @@ func (h *FlightHandler) HandleChangeStatus() http.HandlerFunc {
 			return
 		}
 
-		err = h.flight_srv.ChangeStatus(ctx, id, req.Status)
+		err = h.flightUseCase.ChangeStatus(ctx, id, req.Status)
 
 		if err != nil {
 			switch {

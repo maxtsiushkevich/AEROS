@@ -32,14 +32,17 @@ func main() {
 
 	logger := config.SetupLogger(cfg.Env)
 
-	db := postgres.CreateFlightsStorage(&cfg, logger)
-	if err := db.Open(); err != nil {
+	db, err := postgres.Open(&cfg, logger)
+	if err != nil {
 		logger.Error("Failed to open database", "err", err)
 		return
 	}
 
+	flight_db := postgres.CreateFlightsStorage(db, logger)
+	cargo_db := postgres.CreateCargoStorage(db, logger)
+
 	// Init server
-	server := http.CreateServer(&cfg, logger, db)
+	server := http.CreateServer(&cfg, logger, flight_db, cargo_db)
 	if err := server.Start(); err != nil {
 		slog.Error("Server failed", "err", err)
 	}
@@ -56,7 +59,7 @@ func main() {
 		os.Exit(-1)
 	}
 
-	if err := db.Close(); err != nil {
+	if err := postgres.Close(db, logger); err != nil {
 		logger.Error("Failed to close database", "err", err)
 	}
 
