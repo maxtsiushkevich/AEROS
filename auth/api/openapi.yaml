@@ -1,8 +1,8 @@
 openapi: 3.0.3
 info:
-  title: Auth Service API
+  title: Auth and RBAC API
   version: 1.0.0
-  description: HTTP API for authentication and role-based access control.
+  description: HTTP API for authentication, password management, and role-based access control.
 servers:
   - url: http://localhost:3001
     description: Local development server
@@ -302,14 +302,7 @@ paths:
       operationId: removeRoleFromUser
       parameters:
         - $ref: '#/components/parameters/UserIDPath'
-        - name: role_name
-          in: path
-          required: true
-          schema:
-            type: string
-            minLength: 2
-            maxLength: 30
-            pattern: '^[A-Za-z]+$'
+        - $ref: '#/components/parameters/RoleNamePath'
       responses:
         '204':
           description: Role removed.
