@@ -55,8 +55,8 @@ func (f *Flight) Cancel() bool {
 	return false
 }
 
-func (f *Flight) Reschedule(newDate time.Time) error {
-	if !newDate.After(time.Now()) {
+func (f *Flight) Reschedule(newDate time.Time, now time.Time) error {
+	if !newDate.After(now) {
 		return errors.ErrIncorrectFlightTime
 	}
 

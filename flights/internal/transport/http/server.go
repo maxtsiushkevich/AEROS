@@ -18,12 +18,12 @@ type Server struct {
 	config  *config.Config
 	server  *http.Server
 	logger  *slog.Logger
-	storage repository.FlightsStorage
+	storage repository.FlightRepository
 
 	flights *handlers.FlightHandler
 }
 
-func CreateServer(cfg *config.Config, l *slog.Logger, db repository.FlightsStorage) *Server {
+func CreateServer(cfg *config.Config, l *slog.Logger, db repository.FlightRepository) *Server {
 	return &Server{
 		config:  cfg,
 		logger:  l,

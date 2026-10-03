@@ -10,10 +10,10 @@ import (
 )
 
 type FlightService struct {
-	storage repository.FlightsStorage
+	storage repository.FlightRepository
 }
 
-func NewFlightService(storage repository.FlightsStorage) *FlightService {
+func NewFlightService(storage repository.FlightRepository) *FlightService {
 	return &FlightService{
 		storage: storage,
 	}
@@ -71,7 +71,6 @@ func (s *FlightService) CancelFlight(ctx context.Context, id uuid.UUID) error {
 			return err
 		}
 	}
-
 	return nil
 }
 
@@ -81,7 +80,7 @@ func (s *FlightService) RescheduleFlight(ctx context.Context, id uuid.UUID, newD
 		return err
 	}
 
-	err = f.Reschedule(newDate)
+	err = f.Reschedule(newDate, time.Now())
 	if err != nil {
 		return err
 	}

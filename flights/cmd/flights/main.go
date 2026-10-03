@@ -32,7 +32,7 @@ func main() {
 
 	logger := config.SetupLogger(cfg.Env)
 
-	db := postgres.CreateStorage(&cfg, logger)
+	db := postgres.CreateFlightsStorage(&cfg, logger)
 	if err := db.Open(); err != nil {
 		logger.Error("Failed to open database", "err", err)
 		return

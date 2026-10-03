@@ -9,3 +9,9 @@ var (
 	ErrIncorrectFlightTime = errors.New("flight time in the past")
 	ErrInvalidFlightStatus = errors.New("invalid flight status")
 )
+
+var (
+	ErrIncorrectCargoWeigh = errors.New("incorrect cargo weight")
+	ErrLuggageWithoutOwner = errors.New("luggage without owner")
+	ErrMaxWeightExceeded   = errors.New("max weight exceeded")
+)

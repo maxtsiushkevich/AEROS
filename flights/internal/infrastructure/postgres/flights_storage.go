@@ -21,7 +21,7 @@ type PostgresFlightsStorage struct {
 	db     *gorm.DB
 }
 
-func CreateStorage(cfg *config.Config, l *slog.Logger) *PostgresFlightsStorage {
+func CreateFlightsStorage(cfg *config.Config, l *slog.Logger) *PostgresFlightsStorage {
 	return &PostgresFlightsStorage{
 		config: cfg,
 		logger: l,
@@ -49,15 +49,6 @@ func (s *PostgresFlightsStorage) Open() error {
 	pool.SetMaxIdleConns(5)
 	pool.SetConnMaxLifetime(30 * time.Second)
 	pool.SetConnMaxIdleTime(15 * time.Second)
-
-	return nil
-}
-
-func (s *PostgresFlightsStorage) autoMigrateModels() error {
-	if err := s.db.AutoMigrate(&Flight{}); err != nil {
-		s.logger.Error("Failed to auto-migrate models", "err", err)
-		return err
-	}
 
 	return nil
 }
