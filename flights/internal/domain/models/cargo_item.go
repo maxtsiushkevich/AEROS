@@ -8,10 +8,11 @@ import (
 )
 
 type CargoItem struct {
-	Id          uuid.UUID
+	ID          uuid.UUID
+	ManifestID  uuid.UUID
 	CargoType   CargoType
 	WeightKg    int
-	PassengerId *uuid.UUID
+	PassengerID *uuid.UUID
 	Description string
 	PackedAt    time.Time
 }
@@ -27,26 +28,26 @@ const (
 )
 
 func NewCargoItem(
-	cargo_type CargoType,
-	weight_kg int,
-	passengerId *uuid.UUID,
+	cargoType CargoType,
+	weightKg int,
+	passengerID *uuid.UUID,
 	description string,
-	packed_at time.Time) (*CargoItem, error) {
-
-	if weight_kg <= 0 {
+	packedAt time.Time,
+) (*CargoItem, error) {
+	if weightKg <= 0 {
 		return nil, errors.ErrIncorrectCargoWeigh
 	}
 
-	if passengerId == nil && cargo_type == Luggage {
+	if passengerID == nil && cargoType == Luggage {
 		return nil, errors.ErrLuggageWithoutOwner
 	}
 
 	return &CargoItem{
-		Id:          uuid.New(),
-		CargoType:   cargo_type,
-		WeightKg:    weight_kg,
-		PassengerId: passengerId,
+		ID:          uuid.New(),
+		CargoType:   cargoType,
+		WeightKg:    weightKg,
+		PassengerID: passengerID,
 		Description: description,
-		PackedAt:    packed_at,
+		PackedAt:    packedAt,
 	}, nil
 }

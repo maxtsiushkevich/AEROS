@@ -6,7 +6,6 @@ import (
 	usecase "flights/internal/application/usecase"
 	domain_err "flights/internal/domain/errors"
 	"flights/internal/domain/models"
-	"flights/internal/domain/repository"
 	"flights/internal/transport/dto"
 	"flights/internal/utils"
 	"fmt"
@@ -19,14 +18,12 @@ import (
 )
 
 type FlightHandler struct {
-	storage       repository.FlightRepository
 	flightUseCase usecase.FlightUseCase
 	validator     *validator.Validate
 }
 
-func NewFlightHandler(storage repository.FlightRepository, useCase usecase.FlightUseCase) (*FlightHandler, error) {
+func NewFlightHandler(useCase usecase.FlightUseCase) (*FlightHandler, error) {
 	return &FlightHandler{
-		storage:       storage,
 		flightUseCase: useCase,
 		validator:     validator.New(),
 	}, nil
@@ -111,11 +108,6 @@ func (h *FlightHandler) HandleDeleteFlight() http.HandlerFunc {
 
 		err = h.flightUseCase.DeleteFlight(ctx, id)
 		if err != nil {
-			if errors.Is(err, domain_err.ErrFlightNotFound) {
-				w.WriteHeader(http.StatusNoContent)
-				return
-			}
-
 			httperr.Write(w, http.StatusInternalServerError, "Failed to delete flight")
 			return
 		}

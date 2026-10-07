@@ -5,6 +5,7 @@ import (
 	"flights/internal/domain/models"
 	"flights/internal/domain/repository"
 	"flights/internal/domain/service"
+	domService "flights/internal/infrastructure/service"
 	"time"
 
 	"github.com/google/uuid"
@@ -13,13 +14,14 @@ import (
 type FlightUseCase struct {
 	flightsStorage repository.FlightRepository
 	cargoStorage   repository.CargoRepository
-	service        service.FlightDomainService
+	service        service.FlightService
 }
 
-func NewFlightUseCase(storage repository.FlightRepository, cargoStorage repository.CargoRepository) *FlightUseCase {
+func NewFlightUseCase(flightsStorage repository.FlightRepository, cargoStorage repository.CargoRepository) *FlightUseCase {
 	return &FlightUseCase{
-		flightsStorage: storage,
-		cargoStorage:  cargoStorage,
+		flightsStorage: flightsStorage,
+		cargoStorage:   cargoStorage,
+		service:        domService.NewFlightDomainService(flightsStorage),
 	}
 }
 
@@ -56,14 +58,6 @@ func (s *FlightUseCase) CreateFlight(ctx context.Context, flightNumber string,
 	}
 
 	return created, nil
-}
-
-func (s *FlightUseCase) UpdateFlight(ctx context.Context, flight *models.Flight) (*models.Flight, error) {
-	updated, err := s.flightsStorage.Update(ctx, flight)
-	if err != nil {
-		return nil, err
-	}
-	return updated, nil
 }
 
 func (s *FlightUseCase) DeleteFlight(ctx context.Context, id uuid.UUID) error {

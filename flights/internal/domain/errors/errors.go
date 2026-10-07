@@ -12,7 +12,8 @@ var (
 )
 
 var (
-	ErrIncorrectCargoWeigh = errors.New("incorrect cargo weight")
-	ErrLuggageWithoutOwner = errors.New("luggage without owner")
-	ErrMaxWeightExceeded   = errors.New("max weight exceeded")
+	ErrCargoManifestNotFound = errors.New("cargo manifest not found")
+	ErrIncorrectCargoWeigh   = errors.New("incorrect cargo weight")
+	ErrLuggageWithoutOwner   = errors.New("luggage without owner")
+	ErrMaxWeightExceeded     = errors.New("max weight exceeded")
 )

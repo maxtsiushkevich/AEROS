@@ -16,7 +16,6 @@ type FlightUseCase interface {
 		date time.Time,
 		status models.FlightStatus,
 		aircraft string) (*models.Flight, error)
-	UpdateFlight(ctx context.Context, flight *models.Flight) (*models.Flight, error)
 	DeleteFlight(ctx context.Context, id uuid.UUID) error
 	CancelFlight(ctx context.Context, id uuid.UUID) error
 	RescheduleFlight(ctx context.Context, id uuid.UUID, newDate time.Time) error

@@ -22,6 +22,7 @@ type Server struct {
 	cargoStorage   repository.CargoRepository
 
 	flights *handlers.FlightHandler
+	cargo   *handlers.CargoHandler
 }
 
 func CreateServer(cfg *config.Config, l *slog.Logger, flight_db repository.FlightRepository, cargo_db repository.CargoRepository) *Server {
@@ -42,8 +43,10 @@ func (s *Server) Start() error {
 	var err error
 
 	flightUseCase := infra.NewFlightUseCase(s.flightsStorage, s.cargoStorage)
+	cargoUseCase := infra.NewCargoUseCase(s.cargoStorage)
 
-	s.flights, err = handlers.NewFlightHandler(s.flightsStorage, flightUseCase)
+	s.flights, err = handlers.NewFlightHandler(flightUseCase)
+	s.cargo, err = handlers.NewCargoHandler(cargoUseCase)
 
 	if err != nil {
 		s.logger.Error("Connection to DB failed", "err", err)
@@ -97,6 +100,8 @@ func (s *Server) configureRouter(router *http.ServeMux) {
 	router.HandleFunc("POST /api/v1/flights/{id}/cancel", mw.Apply(s.flights.HandleCancelFlight()))
 	router.HandleFunc("POST /api/v1/flights/{id}/reschedule", mw.Apply(s.flights.HandleRescheduleFlight()))
 	router.HandleFunc("POST /api/v1/flights/{id}/status", mw.Apply(s.flights.HandleChangeStatus()))
+
+	router.HandleFunc("GET /api/v1/cargo/{flight_id}", mw.Apply(s.cargo.HandleGetCargoManifest()))
 
 	s.logger.Info("Router configured")
 }

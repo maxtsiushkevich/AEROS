@@ -7,50 +7,80 @@ import (
 )
 
 type CargoManifest struct {
-	flightId        uuid.UUID
-	maxWeightKg     int
-	currentWeightKg int
-	cargoItems      map[uuid.UUID]CargoItem
+	ID              uuid.UUID
+	FlightID        uuid.UUID
+	MaxWeightKg     int
+	CurrentWeightKg int
+	items           map[uuid.UUID]CargoItem
 }
 
-func NewCargoManifest(fligh_id uuid.UUID, max_weight_kg int) (*CargoManifest, error) {
-	if max_weight_kg <= 0 {
+func NewCargoManifest(flightID uuid.UUID, maxWeightKg int) (*CargoManifest, error) {
+	if maxWeightKg <= 0 {
 		return nil, errors.ErrIncorrectCargoWeigh
 	}
+
 	return &CargoManifest{
-		flightId:        fligh_id,
-		maxWeightKg:     max_weight_kg,
-		currentWeightKg: 0,
-		cargoItems:      map[uuid.UUID]CargoItem{},
+		ID:              uuid.New(),
+		FlightID:        flightID,
+		MaxWeightKg:     maxWeightKg,
+		CurrentWeightKg: 0,
+		items:           map[uuid.UUID]CargoItem{},
 	}, nil
 }
 
+func (m *CargoManifest) Items() []CargoItem {
+	res := make([]CargoItem, 0, len(m.items))
+	for _, it := range m.items {
+		res = append(res, it)
+	}
+	return res
+}
+
+func RestoreCargoManifest(
+	id, flightID uuid.UUID,
+	maxWeightKg, currentWeightKg int,
+	items []CargoItem,
+) *CargoManifest {
+	m := &CargoManifest{
+		ID:              id,
+		FlightID:        flightID,
+		MaxWeightKg:     maxWeightKg,
+		CurrentWeightKg: currentWeightKg,
+		items:           make(map[uuid.UUID]CargoItem, len(items)),
+	}
+	for _, it := range items {
+		m.items[it.ID] = it
+	}
+	return m
+}
+
 func (m *CargoManifest) AddCargoItem(item CargoItem) error {
-	if m.currentWeightKg+item.WeightKg > m.maxWeightKg {
+	if item.WeightKg <= 0 {
+		return errors.ErrIncorrectCargoWeigh
+	}
+
+	if m.CurrentWeightKg+item.WeightKg > m.MaxWeightKg {
 		return errors.ErrMaxWeightExceeded
 	}
 
-	m.cargoItems[item.Id] = item
-	m.currentWeightKg += item.WeightKg
+	m.items[item.ID] = item
+	m.CurrentWeightKg += item.WeightKg
 	return nil
 }
 
-func (m *CargoManifest) DeleteCargoItem(item_id uuid.UUID) {
-	if item, exists := m.cargoItems[item_id]; exists {
-		m.currentWeightKg -= item.WeightKg
+func (m *CargoManifest) DeleteCargoItem(itemID uuid.UUID) {
+	if item, exists := m.items[itemID]; exists {
+		m.CurrentWeightKg -= item.WeightKg
+		if m.CurrentWeightKg < 0 {
+			m.CurrentWeightKg = 0
+		}
 	}
-	delete(m.cargoItems, item_id)
+	delete(m.items, itemID)
 }
 
-func (m *CargoManifest) FlightId() uuid.UUID { return m.flightId }
-
-func (m *CargoManifest) MaxWeightKg() int { return m.maxWeightKg }
-
-func (m *CargoManifest) CurrentWeightKg() int { return m.currentWeightKg }
-
 func (m *CargoManifest) CargoItems() []CargoItem {
-	items := make([]CargoItem, 0, len(m.cargoItems))
-	for _, item := range m.cargoItems {
+	items := make([]CargoItem, 0, len(m.items))
+	for _, item := range m.items {
 		items = append(items, item)
 	}
 	return items
