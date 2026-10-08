@@ -2,7 +2,6 @@ package models
 
 import (
 	"flights/internal/domain/errors"
-	"time"
 
 	"github.com/google/uuid"
 )
@@ -14,25 +13,24 @@ type CargoItem struct {
 	WeightKg    int
 	PassengerID *uuid.UUID
 	Description string
-	PackedAt    time.Time
 }
 
 type CargoType string
 
 const (
-	Luggage      CargoType = "LUGGAGE"   // Багаж пассажиров
-	Cargo        CargoType = "CARGO"     // Коммерческий груз
-	Mail         CargoType = "MAIL"      // Почта
-	Equipment    CargoType = "EQUIPMENT" // Оборудование
-	DangerousGds CargoType = "DANGEROUS" // Опасные грузы
+	Luggage      CargoType = "Luggage"   // Багаж пассажиров
+	Cargo        CargoType = "Cargo"     // Коммерческий груз
+	Mail         CargoType = "Mail"      // Почта
+	Equipment    CargoType = "Equipment" // Оборудование
+	DangerousGds CargoType = "Dangerous" // Опасные грузы
 )
 
 func NewCargoItem(
+	manifestID uuid.UUID,
 	cargoType CargoType,
 	weightKg int,
 	passengerID *uuid.UUID,
 	description string,
-	packedAt time.Time,
 ) (*CargoItem, error) {
 	if weightKg <= 0 {
 		return nil, errors.ErrIncorrectCargoWeigh
@@ -44,10 +42,10 @@ func NewCargoItem(
 
 	return &CargoItem{
 		ID:          uuid.New(),
+		ManifestID:  manifestID,
 		CargoType:   cargoType,
 		WeightKg:    weightKg,
 		PassengerID: passengerID,
 		Description: description,
-		PackedAt:    packedAt,
 	}, nil
 }

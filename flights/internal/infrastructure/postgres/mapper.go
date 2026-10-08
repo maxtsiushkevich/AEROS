@@ -72,7 +72,6 @@ func (i CargoItem) ToDomain() models.CargoItem {
 		WeightKg:    i.WeightKg,
 		PassengerID: i.PassengerID,
 		Description: i.Description,
-		PackedAt:    i.PackedAt,
 	}
 }
 
@@ -84,7 +83,6 @@ func CargoItemFromDomain(d models.CargoItem) CargoItem {
 		WeightKg:    d.WeightKg,
 		PassengerID: d.PassengerID,
 		Description: d.Description,
-		PackedAt:    d.PackedAt,
 	}
 }
 

@@ -2,12 +2,11 @@ package usecase
 
 import (
 	"context"
+	appusecase "flights/internal/application/usecase"
 	"flights/internal/domain/models"
 	"flights/internal/domain/repository"
 	"flights/internal/domain/service"
 	domService "flights/internal/infrastructure/service"
-
-	"github.com/google/uuid"
 )
 
 type CargoUseCase struct {
@@ -22,8 +21,8 @@ func NewCargoUseCase(storage repository.CargoRepository) *CargoUseCase {
 	}
 }
 
-func (c *CargoUseCase) GetCargoManifest(ctx context.Context, flightID uuid.UUID) (*models.CargoManifest, error) {
-	manifest, err := c.cargoStorage.FindByFlightID(ctx, flightID)
+func (c *CargoUseCase) GetCargoManifest(ctx context.Context, req appusecase.GetCargoManifestRequest) (*models.CargoManifest, error) {
+	manifest, err := c.cargoStorage.Read(ctx, req.ID)
 	if err != nil {
 		return nil, err
 	}
@@ -31,22 +30,42 @@ func (c *CargoUseCase) GetCargoManifest(ctx context.Context, flightID uuid.UUID)
 	return manifest, nil
 }
 
-func (c *CargoUseCase) CreateCargoItem(ctx context.Context, flightID uuid.UUID, item *models.CargoItem) (*models.CargoItem, error) {
+func (c *CargoUseCase) AddCargoItem(ctx context.Context, req appusecase.AddCargoItemRequest) (*models.CargoItem, error) {
+	manifest, err := c.cargoStorage.Read(ctx, req.ManifestID)
+	if err != nil {
+		return nil, err
+	}
+
+	item, err := models.NewCargoItem(req.ManifestID, models.CargoType(req.CargoType), req.WeightKg, req.PassengerID, req.Description)
+	if err != nil {
+		return nil, err
+	}
+
+	err = manifest.AddCargoItem(*item)
+	if err != nil {
+		return nil, err
+	}
+
+	err = c.cargoStorage.Update(ctx, manifest)
+	if err != nil {
+		return nil, err
+	}
+
+	return item, nil
+}
+
+func (c *CargoUseCase) GetCargoItem(ctx context.Context, req appusecase.GetCargoItemRequest) (*models.CargoItem, error) {
 	return nil, nil
 }
 
-func (c *CargoUseCase) GetCargoItem(ctx context.Context, flightID, itemID uuid.UUID) (*models.CargoItem, error) {
+func (c *CargoUseCase) GetCargoItems(ctx context.Context, req appusecase.GetCargoItemsRequest) ([]models.CargoItem, error) {
 	return nil, nil
 }
 
-func (c *CargoUseCase) GetCargoItems(ctx context.Context, flightID uuid.UUID) ([]models.CargoItem, error) {
-	return nil, nil
-}
-
-func (c *CargoUseCase) DeleteCargoItem(ctx context.Context, flightID, itemID uuid.UUID) error {
+func (c *CargoUseCase) DeleteCargoItem(ctx context.Context, req appusecase.DeleteCargoItemRequest) error {
 	return nil
 }
 
-func (c *CargoUseCase) MoveCargoItem(ctx context.Context, itemID, newFlightId uuid.UUID) error {
+func (c *CargoUseCase) MoveCargoItem(ctx context.Context, req appusecase.MoveCargoItemRequest) error {
 	return nil
 }

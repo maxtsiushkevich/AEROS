@@ -7,5 +7,5 @@ import (
 )
 
 type CargoService interface {
-	AddItem(ctx context.Context, flightID uuid.UUID)
+	AddItem(ctx context.Context, id uuid.UUID)
 }

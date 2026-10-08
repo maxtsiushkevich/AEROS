@@ -55,10 +55,6 @@ func RestoreCargoManifest(
 }
 
 func (m *CargoManifest) AddCargoItem(item CargoItem) error {
-	if item.WeightKg <= 0 {
-		return errors.ErrIncorrectCargoWeigh
-	}
-
 	if m.CurrentWeightKg+item.WeightKg > m.MaxWeightKg {
 		return errors.ErrMaxWeightExceeded
 	}

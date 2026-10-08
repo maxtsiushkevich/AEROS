@@ -42,7 +42,6 @@ type CargoItem struct {
 	WeightKg    int              `gorm:"not null;default:0"`
 	PassengerID *uuid.UUID       `gorm:"type:uuid"`
 	Description string           `gorm:"not null"`
-	PackedAt    time.Time        `gorm:"not null"`
 
 	Manifest CargoManifest `gorm:"foreignKey:ManifestID;references:ID"`
 }

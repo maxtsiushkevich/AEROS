@@ -56,7 +56,6 @@ func (s *Server) Start() error {
 	s.userHandler = handler.NewUserHandler(service)
 
 	router := gin.Default()
-	// router.Use(middleware.GinAuthMiddleware(s.rbacService))
 
 	s.configRoutes(router)
 

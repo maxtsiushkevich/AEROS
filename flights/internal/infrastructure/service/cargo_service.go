@@ -15,6 +15,6 @@ func NewCargoDomainService(repo repository.CargoRepository) *CargoDomainService 
 	return &CargoDomainService{repo: repo}
 }
 
-func (s CargoDomainService) AddItem(ctx context.Context, flightID uuid.UUID) {
+func (s CargoDomainService) AddItem(ctx context.Context, id uuid.UUID) {
 
 }

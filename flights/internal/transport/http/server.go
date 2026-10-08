@@ -101,7 +101,11 @@ func (s *Server) configureRouter(router *http.ServeMux) {
 	router.HandleFunc("POST /api/v1/flights/{id}/reschedule", mw.Apply(s.flights.HandleRescheduleFlight()))
 	router.HandleFunc("POST /api/v1/flights/{id}/status", mw.Apply(s.flights.HandleChangeStatus()))
 
-	router.HandleFunc("GET /api/v1/cargo/{flight_id}", mw.Apply(s.cargo.HandleGetCargoManifest()))
+	router.HandleFunc("GET /api/v1/cargo/{id}", mw.Apply(s.cargo.HandleGetCargoManifest()))
+	router.HandleFunc("GET /api/v1/cargo/{id}/items", mw.Apply(s.cargo.HandleGetCargoItems()))
+	router.HandleFunc("POST /api/v1/cargo/{id}/add", mw.Apply(s.cargo.HandleAddCargoItem()))
+	router.HandleFunc("DELETE /api/v1/cargo/{id}/delete/{item_id}", mw.Apply(s.cargo.HandleDeleteCargoItem()))
+	router.HandleFunc("POST /api/v1/cargo/{id}/move/{item_id}", mw.Apply(s.cargo.HandleMoveCargoItem()))
 
 	s.logger.Info("Router configured")
 }

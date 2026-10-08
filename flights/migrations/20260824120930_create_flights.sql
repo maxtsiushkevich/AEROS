@@ -13,11 +13,11 @@ CREATE TYPE status_enum AS ENUM (
 );
 
 CREATE TYPE cargo_type_enum AS ENUM (
-	'LUGGAGE',
-	'CARGO', 
-	'MAIL', 
-	'EQUIPMENT', 
-	'DANGEROUS'
+	'Luggage',
+	'Cargo', 
+	'Mail', 
+	'Equipment', 
+	'Dangerous'
 );
 
 CREATE TABLE flights (
@@ -82,7 +82,7 @@ CREATE TABLE cargo_items (
     weight_kg INTEGER NOT NULL DEFAULT 0,
     passenger_id UUID,
     description TEXT NOT NULL,
-    packed_at TIMESTAMPTZ NOT NULL,
+
 
     CONSTRAINT cargo_items_pkey
         PRIMARY KEY (id),
@@ -136,57 +136,56 @@ FROM (VALUES
 ) AS m(flight_number, max_weight_kg)
 JOIN flights f ON f.flight_number = m.flight_number;
 
-INSERT INTO cargo_items (manifest_id, cargo_type, weight_kg, passenger_id, description, packed_at)
+INSERT INTO cargo_items (manifest_id, cargo_type, weight_kg, passenger_id, description)
 SELECT
     cm.id,
     i.cargo_type::cargo_type_enum,
     i.weight_kg,
-    CASE WHEN i.cargo_type = 'LUGGAGE' THEN gen_random_uuid() END,
-    i.description,
-    CURRENT_TIMESTAMP - i.packed_ago
+    CASE WHEN i.cargo_type = 'Luggage' THEN gen_random_uuid() END,
+    i.description
 FROM (VALUES
     -- SU1001
-('SU1001', 'LUGGAGE',   23, 'Suitcase, blue, checked baggage',             INTERVAL '90 minutes'),
-('SU1001', 'LUGGAGE',   18, 'Travel bag, black',                           INTERVAL '85 minutes'),
-('SU1001', 'CARGO',   1200, 'Pallet with equipment spare parts',           INTERVAL '3 hours'),
-('SU1001', 'MAIL',     150, 'Mail shipments, 12 bags',                     INTERVAL '2 hours'),
+('SU1001', 'Luggage',   23, 'Suitcase, blue, checked baggage'),
+('SU1001', 'Luggage',   18, 'Travel bag, black'),
+('SU1001', 'Cargo',   1200, 'Pallet with equipment spare parts'),
+('SU1001', 'Mail',     150, 'Mail shipments, 12 bags'),
 -- BA2045
-('BA2045', 'LUGGAGE',   25, 'Suitcase, red',                               INTERVAL '5 hours'),
-('BA2045', 'LUGGAGE',   20, 'Large backpack, checked',                     INTERVAL '5 hours'),
-('BA2045', 'CARGO',   4500, 'Container with electronics',                  INTERVAL '6 hours'),
-('BA2045', 'EQUIPMENT', 800, 'Spare landing gear for maintenance',         INTERVAL '7 hours'),
+('BA2045', 'Luggage',   25, 'Suitcase, red'),
+('BA2045', 'Luggage',   20, 'Large backpack, checked'),
+('BA2045', 'Cargo',   4500, 'Container with electronics'),
+('BA2045', 'Equipment', 800, 'Spare landing gear for maintenance'),
 -- LH3201
-('LH3201', 'LUGGAGE',   22, 'Suitcase, gray',                              INTERVAL '40 minutes'),
-('LH3201', 'LUGGAGE',   15, 'Sports bag',                                  INTERVAL '35 minutes'),
-('LH3201', 'MAIL',      80, 'Business correspondence',                     INTERVAL '1 hour'),
+('LH3201', 'Luggage',   22, 'Suitcase, gray'),
+('LH3201', 'Luggage',   15, 'Sports bag'),
+('LH3201', 'Mail',      80, 'Business correspondence'),
 -- AF4567
-('AF4567', 'LUGGAGE',   24, 'Suitcase, green',                             INTERVAL '10 hours'),
-('AF4567', 'CARGO',   3200, 'Pharmaceutical products (temperature-controlled mode)', INTERVAL '11 hours'),
-('AF4567', 'DANGEROUS', 120, 'Lithium batteries, Class 9',             INTERVAL '11 hours'),
+('AF4567', 'Luggage',   24, 'Suitcase, green'),
+('AF4567', 'Cargo',   3200, 'Pharmaceutical products (temperature-controlled mode)'),
+('AF4567', 'Dangerous', 120, 'Lithium batteries, Class 9'),
 -- EK5123
-('EK5123', 'LUGGAGE',   30, 'Two pieces of luggage, family',               INTERVAL '2 hours'),
-('EK5123', 'CARGO',   6000, 'Textiles, 40 boxes',                          INTERVAL '4 hours'),
-('EK5123', 'EQUIPMENT', 500, 'Musical equipment',                          INTERVAL '3 hours'),
+('EK5123', 'Luggage',   30, 'Two pieces of luggage, family'),
+('EK5123', 'Cargo',   6000, 'Textiles, 40 boxes'),
+('EK5123', 'Equipment', 500, 'Musical equipment'),
 -- KL2847
-('KL2847', 'LUGGAGE',   19, 'Suitcase, black',                             INTERVAL '10 minutes'),
-('KL2847', 'CARGO',    600, 'Cut flowers, 30 boxes',                       INTERVAL '1 hour'),
-('KL2847', 'MAIL',      90, 'Parcels',                                     INTERVAL '1 hour'),
+('KL2847', 'Luggage',   19, 'Suitcase, black'),
+('KL2847', 'Cargo',    600, 'Cut flowers, 30 boxes'),
+('KL2847', 'Mail',      90, 'Parcels'),
 -- AA9876
-('AA9876', 'LUGGAGE',   21, 'Suitcase, orange',                            INTERVAL '2 hours'),
-('AA9876', 'CARGO',   2800, 'Auto parts',                                  INTERVAL '3 hours'),
-('AA9876', 'DANGEROUS', 200, 'Aerosols and paints, Class 2',               INTERVAL '3 hours'),
+('AA9876', 'Luggage',   21, 'Suitcase, orange'),
+('AA9876', 'Cargo',   2800, 'Auto parts'),
+('AA9876', 'Dangerous', 200, 'Aerosols and paints, Class 2'),
 -- TK6789
-('TK6789', 'LUGGAGE',   17, 'Carry-on suitcase (checked as luggage)',      INTERVAL '30 minutes'),
-('TK6789', 'CARGO',    450, 'Product samples for exhibition',              INTERVAL '2 hours'),
+('TK6789', 'Luggage',   17, 'Carry-on suitcase (checked as luggage)'),
+('TK6789', 'Cargo',    450, 'Product samples for exhibition'),
 -- DL3456 
-('DL3456', 'LUGGAGE',   26, 'Suitcase, large',                             INTERVAL '2 hours'),
-('DL3456', 'CARGO',   3500, 'Medical equipment',                           INTERVAL '4 hours'),
-('DL3456', 'MAIL',     200, 'Express mail',                                INTERVAL '3 hours'),
+('DL3456', 'Luggage',   26, 'Suitcase, large'),
+('DL3456', 'Cargo',   3500, 'Medical equipment'),
+('DL3456', 'Mail',     200, 'Express mail'),
 -- AC1234
-('AC1234', 'LUGGAGE',   28, 'Suitcase, brown',                             INTERVAL '6 hours'),
-('AC1234', 'CARGO',   5200, 'Industrial equipment',                        INTERVAL '7 hours'),
-('AC1234', 'DANGEROUS', 300, 'Dry ice for sample transport, UN1845',         INTERVAL '7 hours')
-) AS i(flight_number, cargo_type, weight_kg, description, packed_ago)
+('AC1234', 'Luggage',   28, 'Suitcase, brown'),
+('AC1234', 'Cargo',   5200, 'Industrial equipment'),
+('AC1234', 'Dangerous', 300, 'Dry ice for sample transport, UN1845')
+) AS i(flight_number, cargo_type, weight_kg, description)
 JOIN flights f          ON f.flight_number = i.flight_number
 JOIN cargo_manifests cm ON cm.flight_id = f.id;
 
