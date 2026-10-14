@@ -1,14 +1,20 @@
-version: '3.8'
 
 services:
   redis:
     image: redis:7-alpine
     container_name: auth-redis
-    command: redis-server --requirepass 123 --appendonly yes
+    command:
+      - redis-server
+      - --requirepass
+      - "123"
+      - --appendonly
+      - "yes"
     ports:
       - "6379:6379"
+    volumes:
+      - redis_data:/data
     healthcheck:
-      test: ["CMD", "redis-cli", "-a", "123", "PING"]
+      test: ["CMD", "redis-cli", "-a", "123", "--no-auth-warning", "PING"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -17,14 +23,13 @@ services:
     restart: unless-stopped
 
   redis-insight:
-    image: redislabs/redisinsight:latest
+    image: redis/redisinsight:latest
     container_name: auth-redis-insight
     ports:
       - "5540:5540"
-    environment:
-      - REDIS_HOSTS=redis://:123@redis:6379
     depends_on:
-      - redis
+      redis:
+        condition: service_healthy
     networks:
       - aeros_network
     restart: unless-stopped
@@ -32,18 +37,70 @@ services:
   postgres:
     image: postgres:16
     container_name: postgres
-    restart: always
     ports:
       - "5432:5432"
     environment:
       POSTGRES_DB: flights
       POSTGRES_USER: user
       POSTGRES_PASSWORD: "123"
-      PGDATA: /var/lib/postgresql/data
     volumes:
-      - ./postgres_data:/var/lib/postgresql/data
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U user -d flights"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
     networks:
       - aeros_network
+    restart: unless-stopped
+
+  kafka:
+    image: apache/kafka:4.1.0
+    container_name: kafka
+    ports:
+      - "9092:9092"
+    environment:
+      CLUSTER_ID: MkU3OEVBNTcwNTJENDM2Qk
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+
+      KAFKA_LISTENERS: INTERNAL://:29092,EXTERNAL://:9092,CONTROLLER://:9093
+      KAFKA_ADVERTISED_LISTENERS: INTERNAL://kafka:29092,EXTERNAL://localhost:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: INTERNAL:PLAINTEXT,EXTERNAL:PLAINTEXT,CONTROLLER:PLAINTEXT
+
+      KAFKA_INTER_BROKER_LISTENER_NAME: INTERNAL
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_NUM_PARTITIONS: 3
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+    volumes:
+      - kafka_data:/var/lib/kafka/data
+    networks:
+      - aeros_network
+    restart: unless-stopped
+
+  kafka-ui:
+    image: provectuslabs/kafka-ui:latest
+    container_name: kafka-ui
+    ports:
+      - "8080:8080"
+    environment:
+      KAFKA_CLUSTERS_0_NAME: local
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:29092
+    depends_on:
+      - kafka
+    networks:
+      - aeros_network
+    restart: unless-stopped
+
+volumes:
+  redis_data:
+  postgres_data:
+  kafka_data:
 
 networks:
   aeros_network:

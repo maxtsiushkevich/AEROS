@@ -13,3 +13,8 @@ http_server:
 
 auth_server:
     address: localhost:50051
+
+kafka:
+    brokers:
+        - localhost:9092
+    topic: topic

@@ -20,6 +20,7 @@ type Config struct {
 	Database   DbConfig         `yaml:"database"`
 	HTTPServer HTTPServerConfig `yaml:"http_server"`
 	AuthServer AuthServerConfig `yaml:"auth_server"`
+	Kafka      KafkaConfig      `yaml:"kafka"`
 }
 
 type DbConfig struct {
@@ -37,6 +38,11 @@ type HTTPServerConfig struct {
 
 type AuthServerConfig struct {
 	Address string `yaml:"address"`
+}
+
+type KafkaConfig struct {
+	Brokers []string `yaml:"brokers"`
+	Topic   string   `yaml:"topic"`
 }
 
 func Load(filePath string) (Config, error) {

@@ -24,9 +24,11 @@ func (s *Auth) AddUser(ctx context.Context, req *grpc.AddUserRequest) (*grpc.Add
 			if authErr.Code == "USER_ALREADY_EXISTS" {
 				return nil, status.Error(codes.AlreadyExists, authErr.Error())
 			}
+			s.storage.Delete(ctx, userAuthData.ID)
 			return nil, status.Error(codes.Internal, authErr.Error())
 		}
 		s.logger.Error("User creation failed", "email", req.Email, "err", err)
+		s.storage.Delete(ctx, userAuthData.ID)
 		return nil, status.Error(codes.Internal, err.Error())
 	}
 
@@ -34,18 +36,22 @@ func (s *Auth) AddUser(ctx context.Context, req *grpc.AddUserRequest) (*grpc.Add
 
 	// Create permissions for user
 	if s.rbacService != nil {
-		if err := s.rbacService.AssignRoleToUser(ctx, userAuthData.ID, "user"); err != nil {
+		if err := s.rbacService.AssignRoleToUser(ctx, userAuthData.ID, "unconfirmed_user"); err != nil {
 			s.logger.Error("Failed to assign default RBAC role", "user_id", userAuthData.ID, "err", err)
+			s.storage.Delete(ctx, userAuthData.ID)
+			return nil, status.Error(codes.Internal, err.Error())
 		}
 	}
 
 	access, err := auth.GenerateAccessToken(&userAuthData.ID, &userAuthData.Email, &userAuthData.Version)
 	if err != nil {
+		s.storage.Delete(ctx, userAuthData.ID)
 		return nil, status.Error(codes.Internal, err.Error())
 	}
 
 	refresh, err := auth.GenerateRefreshToken(&userAuthData.ID, &userAuthData.Email, &userAuthData.Version)
 	if err != nil {
+		s.storage.Delete(ctx, userAuthData.ID)
 		return nil, status.Error(codes.Internal, err.Error())
 	}
 

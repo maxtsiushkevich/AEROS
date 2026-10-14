@@ -7,6 +7,7 @@ import (
 	auth "users/api/proto"
 	domain_err "users/internal/domain/errors"
 	"users/internal/domain/models"
+	"users/internal/domain/producer"
 	"users/internal/domain/repository"
 
 	"github.com/google/uuid"
@@ -14,14 +15,16 @@ import (
 )
 
 type UserService struct {
-	grpcConn *grpc.ClientConn
-	storage  repository.UserStorage
+	grpcConn  *grpc.ClientConn
+	storage   repository.UserStorage
+	publisher producer.Publisher
 }
 
-func NewUsersService(grpcConn *grpc.ClientConn, storage repository.UserStorage) *UserService {
+func NewUsersService(grpcConn *grpc.ClientConn, storage repository.UserStorage, publisher producer.Publisher) *UserService {
 	return &UserService{
-		grpcConn: grpcConn,
-		storage:  storage,
+		grpcConn:  grpcConn,
+		storage:   storage,
+		publisher: publisher,
 	}
 }
 
@@ -57,6 +60,8 @@ func (s *UserService) RegisterUser(ctx context.Context, name string, email strin
 		s.storage.Delete(ctx, u.Id)
 		return nil, nil, err
 	}
+
+	// s.publisher.Publish(ctx, "1234")
 
 	return &resp.AccessToken, &resp.RefreshToken, nil
 }

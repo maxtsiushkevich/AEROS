@@ -14,31 +14,37 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 
 	"users/internal/config"
+	"users/internal/domain/producer"
 	"users/internal/domain/repository"
+	"users/internal/infrastructure/kafka"
 	"users/internal/infrastructure/service"
 	"users/internal/transport/handler"
 )
 
+type applicationProducers struct {
+	producer producer.Publisher
+}
+
 type Server struct {
-	// router      *gin.Engine
-	server      *http.Server
-	config      *config.Config
-	grpcConn    *grpc.ClientConn
-	logger      *slog.Logger
-	rbacService rbac.AuthorizationService
-	userHandler *handler.UserHandler
-	storage     repository.UserStorage
+	server       *http.Server
+	config       *config.Config
+	grpcConn     *grpc.ClientConn
+	logger       *slog.Logger
+	rbacService  rbac.AuthorizationService
+	userHandler  *handler.UserHandler
+	storage      repository.UserStorage
+	appProducers applicationProducers
 }
 
 func NewServer(cfg *config.Config, logger *slog.Logger, rbacService rbac.AuthorizationService, db repository.UserStorage) *Server {
 	return &Server{
-		config:      cfg,
-		logger:      logger,
-		rbacService: rbacService,
-		storage:     db,
+		config:       cfg,
+		logger:       logger,
+		rbacService:  rbacService,
+		storage:      db,
+		appProducers: applicationProducers{},
 	}
 }
-
 func (s *Server) Start() error {
 	authServerAddr := s.config.AuthServer.Address
 
@@ -51,7 +57,9 @@ func (s *Server) Start() error {
 
 	s.grpcConn = conn
 
-	service := service.NewUsersService(s.grpcConn, s.storage)
+	s.appProducers.producer = kafka.NewKafkaProducer(s.config.Kafka.Brokers, s.config.Kafka.Topic)
+
+	service := service.NewUsersService(s.grpcConn, s.storage, s.appProducers.producer)
 
 	s.userHandler = handler.NewUserHandler(service)
 

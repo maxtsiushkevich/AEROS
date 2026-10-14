@@ -7,12 +7,12 @@ import (
 )
 
 type CreateRoleRequest struct {
-	Name        string `json:"name" binding:"required" validate:"required,min=2,max=30,alpha"`
+	Name        string `json:"name" binding:"required" validate:"required,min=2,max=30"`
 	Description string `json:"description" validate:"omitempty,max=100"`
 }
 
 type CreateActionRequest struct {
-	Name string `json:"name" binding:"required" validate:"required,min=2,max=30,alpha"`
+	Name string `json:"name" binding:"required" validate:"required,min=2,max=30"`
 }
 
 type CreateResourceRequest struct {
@@ -22,16 +22,16 @@ type CreateResourceRequest struct {
 
 type PermissionRequest struct {
 	ResourceName string `json:"resource_name" binding:"required" validate:"required,min=2"`
-	ActionName   string `json:"action_name" binding:"required" validate:"required,min=2,max=30,alpha"`
+	ActionName   string `json:"action_name" binding:"required" validate:"required,min=2,max=30"`
 }
 
 type AssignRoleRequest struct {
-	RoleName string `json:"role_name" binding:"required" validate:"required,min=2,max=30,alpha"`
+	RoleName string `json:"role_name" binding:"required" validate:"required,min=2,max=30"`
 }
 
 type RemoveRoleRequest struct {
 	UserID   uuid.UUID `json:"user_id" binding:"required" validate:"required,uuid"`
-	RoleName string    `json:"role_name" binding:"required" validate:"required,min=2,max=30,alpha"`
+	RoleName string    `json:"role_name" binding:"required" validate:"required,min=2,max=30"`
 }
 
 type RoleResponse struct {
@@ -80,31 +80,6 @@ type UserRoleResponse struct {
 	CreatedAt time.Time     `json:"created_at"`
 	UpdatedAt time.Time     `json:"updated_at"`
 }
-
-// type RoleDetailResponse struct {
-// 	Name        string                   `json:"name"`
-// 	Description string                   `json:"description"`
-// 	Permissions []RolePermissionResponse `json:"permissions,omitempty"`
-// 	CreatedAt   time.Time                `json:"created_at"`
-// 	UpdatedAt   time.Time                `json:"updated_at"`
-// }
-
-// type PermissionDetailResponse struct {
-// 	ResourceName string            `json:"resource_name"`
-// 	ActionName   string            `json:"action_name"`
-// 	Resource     *ResourceResponse `json:"resource"`
-// 	Action       *ActionResponse   `json:"action"`
-// 	CreatedAt    time.Time         `json:"created_at"`
-// 	UpdatedAt    time.Time         `json:"updated_at"`
-// }
-
-// type UserRoleDetailResponse struct {
-// 	UserID    uuid.UUID           `json:"user_id"`
-// 	RoleName  string              `json:"role_name"`
-// 	Role      *RoleDetailResponse `json:"role"`
-// 	CreatedAt time.Time           `json:"created_at"`
-// 	UpdatedAt time.Time           `json:"updated_at"`
-// }
 
 func (r *Role) ToResponse() *RoleResponse {
 	if r == nil {
