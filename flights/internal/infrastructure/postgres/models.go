@@ -27,21 +27,21 @@ type Flight struct {
 
 type CargoManifest struct {
 	Header
-	FlightID        uuid.UUID `gorm:"type:uuid;not null;uniqueIndex"`
-	MaxWeightKg     int       `gorm:"not null"`
-	CurrentWeightKg int       `gorm:"not null;default:0"`
+	FlightID        uuid.UUID   `gorm:"type:uuid;not null;uniqueIndex"`
+	MaxWeightKg     int         `gorm:"not null"`
+	CurrentWeightKg int         `gorm:"not null;default:0"`
+	CargoItems      []CargoItem `gorm:"foreignKey:ManifestID;references:ID"`
 
 	Flight Flight `gorm:"foreignKey:FlightID;references:ID"`
 }
 
 type CargoItem struct {
-	ItemID      uuid.UUID        `gorm:"type:uuid;default:gen_random_uuid();primaryKey"`
+	ID          uuid.UUID        `gorm:"type:uuid;default:gen_random_uuid();primaryKey"`
 	ManifestID  uuid.UUID        `gorm:"type:uuid;not null;index"`
 	CargoType   models.CargoType `gorm:"type:cargo_type_enum;not null"`
 	WeightKg    int              `gorm:"not null;default:0"`
 	PassengerID *uuid.UUID       `gorm:"type:uuid"`
 	Description string           `gorm:"not null"`
-	PackedAt    time.Time        `gorm:"not null"`
 
 	Manifest CargoManifest `gorm:"foreignKey:ManifestID;references:ID"`
 }
