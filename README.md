@@ -1,103 +1,125 @@
 # AEROS
 
-**AEROS (Airline Enterprise Resource Operations System)** is a Go-based airline management system.
+AEROS (Airline Enterprise Resource Operations System) is a Go-based airline management system.
 
-## Architecture
+## Overview
 
-### Repository layout
 
-| Directory | Responsibility |
+- `auth/` — authentication service, JWT handling, RBAC API, and gRPC auth server
+- `flights/` — flight catalog and operational endpoints
+- `users/` — user API and auth-client integration
+- `pkg/` — shared packages used by Go services (`httpresp`, `httperr`, middleware, RBAC helpers)
+- `rbac_config/` — Casbin model and configuration
+- `docker-compose.yaml` — local infrastructure stack for Redis, PostgreSQL, Kafka, and admin UIs
+
+### Main modules
+
+| Module | Responsibility |
 |---|---|
-| `auth/` | Authentication, JWT access/refresh tokens, RBAC HTTP API, and auth gRPC server |
-| `flights/` | Flight catalog, search, and operational actions |
-| `users/` | User API and client for the auth gRPC registration flow |
-| `pkg/` | Shared middleware, JWT helpers, HTTP responses, errors, and RBAC integration |
-| `rbac_config/` | Casbin model and runtime configuration |
-| `notifications/`, `passengers/`, `tickets/`, `seats-booking/` | Additional service modules planned 
+| `auth/` | Login, refresh/logout flow, access and refresh token validation, RBAC HTTP API, gRPC auth server |
+| `flights/` | Flight CRUD, search, status updates, date-based filtering |
+| `users/` | User API and gRPC client used for registration/activation workflows |
+| `pkg/` | Shared HTTP response helpers, middleware, JWT tooling, RBAC layer |
+| `rbac_config/` | Casbin model and config values |
+| `aeros-ui/` | Simple UI to create and manage flights |
 
-Each Go module is independent and the shared package is linked through `replace pkg => ../pkg`.
+Each Go module is independent and uses the shared package through `replace pkg => ../pkg`.
 
 ## Technology stack
 
 ### Backend
 
-| Technology | Usage |
+| Technology | Purpose |
 |---|---|
-| Go | Main service implementation |
-| `net/http` | Auth and flights HTTP servers |
-| Gin | Users HTTP routing |
-| gRPC | Auth/users inter-service communication |
-| Protocol Buffers | gRPC contracts and generated Go bindings |
-| GORM | PostgreSQL persistence |
-| pgx | PostgreSQL driver for GORM |
+| Go | Core microservices |
+| Gin | HTTP routing |
+| Redis | Caching |
+| gRPC | Auth service integration |
+| Protobuf | Auth contracts |
+| GORM | ORM layer for PostgreSQL |
+| pgx | PostgreSQL driver |
+| YAML | Service config files |
 | `validator/v10` | Request validation |
-| `google/uuid` | Entity identifiers |
+| `google/uuid` | ID generation |
 | `log/slog` | Structured logging |
-| YAML | Configuration files |
+| Kafka | Message broker |
 
-### Authentication and authorization
+### Auth and authorization
 
-| Technology | Usage |
+| Technology | Purpose |
 |---|---|
-| JWT | Access and refresh tokens |
-| Redis | Revoked-token cache and RBAC update notifications |
+| JWT | Access/refresh tokens |
+| Redis | Token revocation cache and RBAC update bus |
 | Casbin | Role-based access control |
 | bcrypt | Password hashing |
 
-### Data and infrastructure
+### Integration
 
-| Technology | Usage |
+| Technology | Purpose |
 |---|---|
+| Kafka | Event bus / async integration support |
+| Docker Compose | Local dev infrastructure |
 | PostgreSQL | Service persistence |
 | Goose | SQL migration management |
-| Docker Compose | Local Redis and RedisInsight stack |
 
 ## Requirements
 
-- Go 1.26+ recommended
-- PostgreSQL databases: `auth`, `flights`, and `casbin`
+- Go 1.26.x (as declared in the module files)
+- Docker and Docker Compose
+- PostgreSQL 16+
 - Redis 7+
 - Goose CLI for migrations
 
-The repository currently ships with Docker Compose for Redis and RedisInsight; PostgreSQL must be prepared manually.
 
-## Local setup
+## Local environment
 
-### 1. Start Redis
+The repository includes a Compose stack for data and local tooling:
 
 ```bash
-docker compose -f docker-compose.yaml up -d
+docker compose up -d
 ```
 
-Redis is exposed at `localhost:6379` with password `123`; RedisInsight is available at `http://localhost:5540`.
+This starts:
 
-### 2. Prepare PostgreSQL
+- Redis: `localhost:6379` (password `123`)
+- RedisInsight: `http://localhost:5540`
+- PostgreSQL: `localhost:5432` (user `user`, password `123`, DB `flights` by default)
+- Kafka: `localhost:9092`
+- Kafka UI: `http://localhost:8080`
 
-The default local configuration expects PostgreSQL on `localhost:5432` with the user `user` and password `123`.
-Create the required databases:
+## Database setup
 
-- `auth`
-- `flights`
-- `casbin`
+The default local configuration expects PostgreSQL on `localhost:5432` with credentials:
 
-Update service configs if needed:
+- user: `user`
+- password: `123`
+
+Create the databases needed by the services:
+
+```sql
+CREATE DATABASE auth;
+CREATE DATABASE flights;
+CREATE DATABASE casbin;
+```
+
+Then apply migrations from the service directories:
+
+```bash
+goose -dir auth/migrations postgres "host=localhost port=5432 user=user password=123 dbname=auth sslmode=disable" up
+goose -dir flights/migrations postgres "host=localhost port=5432 user=user password=123 dbname=flights sslmode=disable" up
+goose -dir pkg/rbac/migrations postgres "host=localhost port=5432 user=user password=123 dbname=casbin sslmode=disable" up
+```
+
+The config files are in:
 
 - [auth/config/config.yaml](auth/config/config.yaml)
 - [flights/config/config.yaml](flights/config/config.yaml)
 - [users/config/config.yaml](users/config/config.yaml)
 - [rbac_config/config.yaml](rbac_config/config.yaml)
 
-Apply migrations:
+## Running the services
 
-```bash
-goose -dir auth/migrations postgres "postgres://user:123@localhost:5432/auth?sslmode=disable" up
-goose -dir flights/migrations postgres "postgres://user:123@localhost:5432/flights?sslmode=disable" up
-goose -dir pkg/rbac/migrations postgres "postgres://user:123@localhost:5432/casbin?sslmode=disable" up
-```
-
-### 3. Start the services
-
-Run each service in its own terminal:
+Open separate terminals and run:
 
 ```bash
 cd auth
@@ -164,7 +186,8 @@ The gRPC contract is in [auth/api/proto/auth.proto](auth/api/proto/auth.proto) a
 
 ### Users
 
-The users service currently exposes:
+The users API is defined in [users/api/openapi.yaml](users/api/openapi.yaml).
+
 
 | Method | Endpoint | Purpose |
 |---|---|---|
