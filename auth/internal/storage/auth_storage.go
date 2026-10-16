@@ -5,7 +5,7 @@ import (
 	"auth/internal/models"
 	"auth/pkg/errors"
 	"context"
-	errors_pkg "errors"
+	errorspkg "errors"
 	"fmt"
 	"log/slog"
 	"strings"
@@ -100,7 +100,7 @@ func (s *AuthPostgresStorage) Read(ctx context.Context, email *string) (*models.
 	err := s.db.WithContext(ctx).Where("email = ?", email).First(&authData).Error
 
 	if err != nil {
-		if errors_pkg.Is(err, gorm.ErrRecordNotFound) {
+		if errorspkg.Is(err, gorm.ErrRecordNotFound) {
 			s.logger.Warn("User not found", "email", email)
 			return nil, errors.UserNotFoundError
 		}
@@ -115,7 +115,7 @@ func (s *AuthPostgresStorage) ReadByID(ctx context.Context, id uuid.UUID) (*mode
 	var authData models.UserAuth
 	err := s.db.WithContext(ctx).Where("id = ?", id).First(&authData).Error
 	if err != nil {
-		if errors_pkg.Is(err, gorm.ErrRecordNotFound) {
+		if errorspkg.Is(err, gorm.ErrRecordNotFound) {
 			return nil, errors.NewAuthError("USER_NOT_FOUND", fmt.Sprintf("auth data with id %s not found", id))
 		}
 		return nil, errors.NewAuthError("READ_FAILED", "failed to read user")
@@ -129,7 +129,7 @@ func (s *AuthPostgresStorage) Update(ctx context.Context, update *models.UserAut
 
 	err := s.db.WithContext(ctx).Where("id = ?", update.ID).First(&existing).Error
 	if err != nil {
-		if errors_pkg.Is(err, gorm.ErrRecordNotFound) {
+		if errorspkg.Is(err, gorm.ErrRecordNotFound) {
 			s.logger.Warn("User not found for update", "id", update.ID)
 			return nil, errors.NewAuthError("USER_NOT_FOUND", fmt.Sprintf("auth data with id %s not found", update.ID))
 		}

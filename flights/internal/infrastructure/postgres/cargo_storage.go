@@ -3,7 +3,7 @@ package postgres
 import (
 	"context"
 	"errors"
-	domain_err "flights/internal/domain/errors"
+	domainerr "flights/internal/domain/errors"
 	"flights/internal/domain/models"
 	"log/slog"
 
@@ -25,7 +25,7 @@ func CreateCargoStorage(db *gorm.DB, l *slog.Logger) *PostgresCargoStorage {
 
 func (s *PostgresCargoStorage) Create(ctx context.Context, manifest *models.CargoManifest) error {
 	if manifest == nil {
-		return domain_err.ErrCargoManifestNotFound
+		return domainerr.ErrCargoManifestNotFound
 	}
 
 	dbManifest := CargoManifestFromDomain(manifest)
@@ -37,7 +37,7 @@ func (s *PostgresCargoStorage) Read(ctx context.Context, id uuid.UUID) (*models.
 	cm, err := gorm.G[CargoManifest](s.db).Preload("CargoItems", nil).Where("id = ?", id).First(ctx)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, domain_err.ErrCargoManifestNotFound
+			return nil, domainerr.ErrCargoManifestNotFound
 		}
 		return nil, err
 	}
@@ -49,7 +49,7 @@ func (s *PostgresCargoStorage) FindByFlightID(ctx context.Context, flightID uuid
 	manifest, err := gorm.G[CargoManifest](s.db).Preload("CargoItems", nil).Where("flight_id = ?", flightID).First(ctx)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, domain_err.ErrCargoManifestNotFound
+			return nil, domainerr.ErrCargoManifestNotFound
 		}
 		return nil, err
 	}
@@ -59,7 +59,7 @@ func (s *PostgresCargoStorage) FindByFlightID(ctx context.Context, flightID uuid
 
 func (s *PostgresCargoStorage) Update(ctx context.Context, manifest *models.CargoManifest) error {
 	if manifest == nil {
-		return domain_err.ErrCargoManifestNotFound
+		return domainerr.ErrCargoManifestNotFound
 	}
 	dbManifest := CargoManifestFromDomain(manifest)
 	_, err := gorm.G[CargoManifest](s.db).Where("id = ?", manifest.ID).Updates(ctx, dbManifest)
@@ -69,8 +69,16 @@ func (s *PostgresCargoStorage) Update(ctx context.Context, manifest *models.Carg
 	return nil
 }
 
-func (s *PostgresCargoStorage) Delete(ctx context.Context, flightID uuid.UUID) error {
-	_, err := gorm.G[CargoManifest](s.db).Where("flight_id = ?", flightID).Delete(ctx)
+func (s *PostgresCargoStorage) Delete(ctx context.Context, id uuid.UUID) error {
+	_, err := gorm.G[CargoManifest](s.db).Where("id = ?", id).Delete(ctx)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (s *PostgresCargoStorage) DeleteCargoItem(ctx context.Context, itemId uuid.UUID) error {
+	_, err := gorm.G[CargoItem](s.db).Where("id = ?", itemId).Delete(ctx)
 	if err != nil {
 		return err
 	}

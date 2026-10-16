@@ -25,12 +25,12 @@ type Server struct {
 	cargo   *handlers.CargoHandler
 }
 
-func CreateServer(cfg *config.Config, l *slog.Logger, flight_db repository.FlightRepository, cargo_db repository.CargoRepository) *Server {
+func CreateServer(cfg *config.Config, l *slog.Logger, flightDb repository.FlightRepository, cargoDb repository.CargoRepository) *Server {
 	return &Server{
 		config:         cfg,
 		logger:         l,
-		flightsStorage: flight_db,
-		cargoStorage:   cargo_db,
+		flightsStorage: flightDb,
+		cargoStorage:   cargoDb,
 	}
 }
 
@@ -103,9 +103,10 @@ func (s *Server) configureRouter(router *http.ServeMux) {
 
 	router.HandleFunc("GET /api/v1/cargo/{id}", mw.Apply(s.cargo.HandleGetCargoManifest()))
 	router.HandleFunc("GET /api/v1/cargo/{id}/items", mw.Apply(s.cargo.HandleGetCargoItems()))
+	router.HandleFunc("GET /api/v1/cargo/{id}/items/{item_id}", mw.Apply(s.cargo.HandleGetCargoItem()))
 	router.HandleFunc("POST /api/v1/cargo/{id}/add", mw.Apply(s.cargo.HandleAddCargoItem()))
 	router.HandleFunc("DELETE /api/v1/cargo/{id}/delete/{item_id}", mw.Apply(s.cargo.HandleDeleteCargoItem()))
-	router.HandleFunc("POST /api/v1/cargo/{id}/move/{item_id}", mw.Apply(s.cargo.HandleMoveCargoItem()))
+	router.HandleFunc("POST /api/v1/cargo/{id}/move", mw.Apply(s.cargo.HandleMoveCargoItem()))
 
 	s.logger.Info("Router configured")
 }

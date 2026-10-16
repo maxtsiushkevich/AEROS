@@ -82,7 +82,7 @@ func (s *Server) configureRouter(router *http.ServeMux) {
 		middleware.LoggingMiddleware(s.logger),
 	}
 
-	secure_mw := middleware.MiddlewareGroup{
+	secureMw := middleware.MiddlewareGroup{
 		middleware.LoggingMiddleware(s.logger),
 		middleware.AuthMiddleware(s.rbacService),
 	}
@@ -93,7 +93,7 @@ func (s *Server) configureRouter(router *http.ServeMux) {
 	auth.HandleFunc("POST /refresh", mw.Apply(s.auth.HandleRefreshTokens()))
 	auth.HandleFunc("POST /login", mw.Apply(s.auth.HandleLogin()))
 	auth.HandleFunc("POST /logout", mw.Apply(s.auth.HandleLogout()))
-	auth.HandleFunc("POST /change-password", secure_mw.Apply(s.auth.HandleChangePassword()))
+	auth.HandleFunc("POST /change-password", secureMw.Apply(s.auth.HandleChangePassword()))
 
 	rbac.Handle("PUT /roles", mw.Apply(s.rbac.CreateRole()))           // create role
 	rbac.Handle("DELETE /roles/{role}", mw.Apply(s.rbac.DeleteRole())) // delete role

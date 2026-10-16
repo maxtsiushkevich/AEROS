@@ -2,10 +2,9 @@ package service
 
 import (
 	"context"
-
-	"github.com/google/uuid"
+	"flights/internal/domain/models"
 )
 
 type CargoService interface {
-	AddItem(ctx context.Context, id uuid.UUID)
+	MoveItem(ctx context.Context, item *models.CargoItem, manifest, newManifest *models.CargoManifest) error
 }

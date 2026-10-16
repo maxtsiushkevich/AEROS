@@ -4,7 +4,7 @@ import (
 	"errors"
 	"net/http"
 	"pkg/helpers"
-	domain_err "users/internal/domain/errors"
+	domainerr "users/internal/domain/errors"
 	"users/internal/domain/service"
 	"users/internal/transport/dto"
 
@@ -36,12 +36,12 @@ func (h *UserHandler) Registration(c *gin.Context) {
 	access, refresh, err := h.service.RegisterUser(ctx, req.Name, req.Email, req.Birthday, req.Password)
 	if err != nil {
 		switch {
-		case errors.Is(err, domain_err.ErrInvalidName),
-			errors.Is(err, domain_err.ErrInvalidEmail),
-			errors.Is(err, domain_err.ErrBirthdayInvalid),
-			errors.Is(err, domain_err.ErrNotAdult):
+		case errors.Is(err, domainerr.ErrInvalidName),
+			errors.Is(err, domainerr.ErrInvalidEmail),
+			errors.Is(err, domainerr.ErrBirthdayInvalid),
+			errors.Is(err, domainerr.ErrNotAdult):
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		case errors.Is(err, domain_err.ErrUserAlreadyExists):
+		case errors.Is(err, domainerr.ErrUserAlreadyExists):
 			c.JSON(http.StatusConflict, gin.H{"error": err.Error()})
 		default:
 			c.JSON(http.StatusInternalServerError, gin.H{
@@ -118,7 +118,7 @@ func (h *UserHandler) Activate(c *gin.Context) {
 
 	err = h.service.ActivateUser(ctx, parsed)
 	if err != nil {
-		if errors.Is(err, domain_err.ErrUserAlreadyActivated) {
+		if errors.Is(err, domainerr.ErrUserAlreadyActivated) {
 			c.JSON(http.StatusConflict, gin.H{
 				"error": "User is already activated",
 			})

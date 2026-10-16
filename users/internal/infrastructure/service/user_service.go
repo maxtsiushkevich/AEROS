@@ -5,7 +5,7 @@ import (
 	"errors"
 	"time"
 	auth "users/api/proto"
-	domain_err "users/internal/domain/errors"
+	domainerr "users/internal/domain/errors"
 	"users/internal/domain/models"
 	"users/internal/domain/producer"
 	"users/internal/domain/repository"
@@ -30,12 +30,12 @@ func NewUsersService(grpcConn *grpc.ClientConn, storage repository.UserStorage, 
 
 func (s *UserService) RegisterUser(ctx context.Context, name string, email string, birthday time.Time, password string) (access *string, refresh *string, err error) {
 	existingUser, err := s.storage.FindByEmail(ctx, email)
-	if err != nil && !errors.Is(err, domain_err.ErrUserNotFound) {
+	if err != nil && !errors.Is(err, domainerr.ErrUserNotFound) {
 		return nil, nil, err
 	}
 	if existingUser != nil {
 
-		return nil, nil, domain_err.ErrUserAlreadyExists
+		return nil, nil, domainerr.ErrUserAlreadyExists
 	}
 
 	u, err := models.NewUser(name, email, birthday)

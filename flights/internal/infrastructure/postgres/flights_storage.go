@@ -3,7 +3,7 @@ package postgres
 import (
 	"context"
 	"errors"
-	domain_err "flights/internal/domain/errors"
+	domainerr "flights/internal/domain/errors"
 	"flights/internal/domain/models"
 	"fmt"
 	"log/slog"
@@ -26,7 +26,7 @@ func CreateFlightsStorage(db *gorm.DB, l *slog.Logger) *PostgresFlightsStorage {
 
 func (s *PostgresFlightsStorage) Create(ctx context.Context, flight *models.Flight) (*models.Flight, error) {
 	if flight == nil {
-		return nil, domain_err.ErrFlightNotFound
+		return nil, domainerr.ErrFlightNotFound
 	}
 
 	dbFlight := FlightFromDomain(flight)
@@ -78,7 +78,7 @@ func (s *PostgresFlightsStorage) Read(ctx context.Context, filter *models.Flight
 
 	if err := query.Find(&dbFlights).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, domain_err.ErrFlightNotFound
+			return nil, domainerr.ErrFlightNotFound
 		}
 		s.logger.Error("Failed to read flights", "err", err)
 		return nil, err
@@ -95,7 +95,7 @@ func (s *PostgresFlightsStorage) Update(ctx context.Context, flight *models.Flig
 	var existing Flight
 	if err := s.db.WithContext(ctx).First(&existing, "id = ?", flight.Id).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, domain_err.ErrFlightNotFound
+			return nil, domainerr.ErrFlightNotFound
 		}
 		return nil, fmt.Errorf("failed to fetch flight for update: %w", err)
 	}
@@ -112,7 +112,7 @@ func (s *PostgresFlightsStorage) Update(ctx context.Context, flight *models.Flig
 	}
 
 	if result.RowsAffected == 0 {
-		return nil, domain_err.ErrFlightNotFound
+		return nil, domainerr.ErrFlightNotFound
 	}
 
 	return FlightToDomain(&existing), nil
@@ -131,7 +131,7 @@ func (s *PostgresFlightsStorage) ReadById(ctx context.Context, id uuid.UUID) (*m
 	var dbFlight Flight
 	if err := s.db.WithContext(ctx).First(&dbFlight, "id = ?", id).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, domain_err.ErrFlightNotFound
+			return nil, domainerr.ErrFlightNotFound
 		}
 		s.logger.Error("Flight not found", "id", id, "err", err)
 		return nil, err

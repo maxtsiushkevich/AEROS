@@ -26,3 +26,8 @@ type AddCargoItemRequest struct {
 	PassengerID *uuid.UUID `json:"passenger_id,omitempty" validate:"omitempty"`
 	Description string     `json:"description" validate:"required,min=5"`
 }
+
+type MoveCargoItemRequest struct {
+	ItemID     uuid.UUID `json:"item_id" validate:"required"`
+	NewCargoID uuid.UUID `json:"new_cargo_id" validate:"required"`
+}

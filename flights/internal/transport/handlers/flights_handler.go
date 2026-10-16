@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	usecase "flights/internal/application/usecase"
-	domain_err "flights/internal/domain/errors"
+	domainerr "flights/internal/domain/errors"
 	"flights/internal/domain/models"
 	"flights/internal/transport/dto"
 	"flights/internal/utils"
@@ -49,7 +49,7 @@ func (h *FlightHandler) HandleGetFlights() http.HandlerFunc {
 		flights, err := h.flightUseCase.GetFlights(ctx, req.ToFlightFilter())
 		if err != nil {
 			switch {
-			case errors.Is(err, domain_err.ErrFlightNotFound):
+			case errors.Is(err, domainerr.ErrFlightNotFound):
 				httperr.Write(w, http.StatusNotFound, "Flights not found")
 			default:
 				httperr.Write(w, http.StatusInternalServerError, "internal server error")
@@ -129,7 +129,7 @@ func (h *FlightHandler) HandleCancelFlight() http.HandlerFunc {
 		err = h.flightUseCase.CancelFlight(ctx, id)
 		if err != nil {
 			switch {
-			case errors.Is(err, domain_err.ErrFlightNotFound):
+			case errors.Is(err, domainerr.ErrFlightNotFound):
 				httperr.Write(w, http.StatusNotFound, "Flight not found")
 			default:
 				httperr.Write(w, http.StatusInternalServerError, "internal server error")
@@ -164,9 +164,9 @@ func (h *FlightHandler) HandleRescheduleFlight() http.HandlerFunc {
 		err = h.flightUseCase.RescheduleFlight(ctx, id, req.NewDate)
 		if err != nil {
 			switch {
-			case errors.Is(err, domain_err.ErrFlightNotFound):
+			case errors.Is(err, domainerr.ErrFlightNotFound):
 				httperr.Write(w, http.StatusNotFound, "flights not found")
-			case errors.Is(err, domain_err.ErrIncorrectFlightTime):
+			case errors.Is(err, domainerr.ErrIncorrectFlightTime):
 				httperr.Write(w, http.StatusBadRequest, "new time in future")
 			default:
 				httperr.Write(w, http.StatusInternalServerError, "internal server error")
@@ -203,9 +203,9 @@ func (h *FlightHandler) HandleChangeStatus() http.HandlerFunc {
 
 		if err != nil {
 			switch {
-			case errors.Is(err, domain_err.ErrFlightNotFound):
+			case errors.Is(err, domainerr.ErrFlightNotFound):
 				httperr.Write(w, http.StatusNotFound, "flights not found")
-			case errors.Is(err, domain_err.ErrInvalidFlightStatus):
+			case errors.Is(err, domainerr.ErrInvalidFlightStatus):
 				httperr.Write(w, http.StatusBadRequest, "invalid flight")
 			default:
 				httperr.Write(w, http.StatusInternalServerError, "internal server error")

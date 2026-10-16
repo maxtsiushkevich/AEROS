@@ -6,7 +6,7 @@ import (
 	"log/slog"
 	"time"
 	"users/internal/config"
-	domain_err "users/internal/domain/errors"
+	domainerr "users/internal/domain/errors"
 	"users/internal/domain/models"
 
 	"github.com/google/uuid"
@@ -88,7 +88,7 @@ func (s *PostgresUserStorage) Read(ctx context.Context, id uuid.UUID) (*models.U
 	var dbUser User
 	if err := s.db.WithContext(ctx).First(&dbUser, "id = ?", id).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
-			return nil, domain_err.ErrUserNotFound
+			return nil, domainerr.ErrUserNotFound
 		}
 		s.logger.Error("Failed to read user", "err", err, "id", id)
 		return nil, err
@@ -117,7 +117,7 @@ func (s *PostgresUserStorage) FindByEmail(ctx context.Context, email string) (*m
 	var dbUser User
 	if err := s.db.WithContext(ctx).First(&dbUser, "email = ?", email).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
-			return nil, domain_err.ErrUserNotFound
+			return nil, domainerr.ErrUserNotFound
 		}
 		return nil, err
 	}

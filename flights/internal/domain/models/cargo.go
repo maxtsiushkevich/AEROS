@@ -28,14 +28,6 @@ func NewCargoManifest(flightID uuid.UUID, maxWeightKg int) (*CargoManifest, erro
 	}, nil
 }
 
-func (m *CargoManifest) Items() []CargoItem {
-	res := make([]CargoItem, 0, len(m.items))
-	for _, it := range m.items {
-		res = append(res, it)
-	}
-	return res
-}
-
 func RestoreCargoManifest(
 	id, flightID uuid.UUID,
 	maxWeightKg, currentWeightKg int,
@@ -59,6 +51,10 @@ func (m *CargoManifest) AddCargoItem(item CargoItem) error {
 		return errors.ErrMaxWeightExceeded
 	}
 
+	if item.ManifestID != m.ID {
+		return errors.ErrCargoItemNotBelongToManifest
+	}
+
 	m.items[item.ID] = item
 	m.CurrentWeightKg += item.WeightKg
 	return nil
@@ -74,10 +70,20 @@ func (m *CargoManifest) DeleteCargoItem(itemID uuid.UUID) {
 	delete(m.items, itemID)
 }
 
-func (m *CargoManifest) CargoItems() []CargoItem {
+func (m *CargoManifest) Items() []CargoItem {
 	items := make([]CargoItem, 0, len(m.items))
 	for _, item := range m.items {
 		items = append(items, item)
 	}
 	return items
+}
+
+func (m *CargoManifest) GetItem(itemId uuid.UUID) (CargoItem, error) {
+	item, ok := m.items[itemId]
+
+	if !ok {
+		return CargoItem{}, errors.ErrCargoItemNotFound
+	}
+
+	return item, nil
 }

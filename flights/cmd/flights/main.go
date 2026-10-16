@@ -38,11 +38,11 @@ func main() {
 		return
 	}
 
-	flight_db := postgres.CreateFlightsStorage(db, logger)
-	cargo_db := postgres.CreateCargoStorage(db, logger)
+	flightDb := postgres.CreateFlightsStorage(db, logger)
+	cargoDb := postgres.CreateCargoStorage(db, logger)
 
 	// Init server
-	server := http.CreateServer(&cfg, logger, flight_db, cargo_db)
+	server := http.CreateServer(&cfg, logger, flightDb, cargoDb)
 	if err := server.Start(); err != nil {
 		slog.Error("Server failed", "err", err)
 	}

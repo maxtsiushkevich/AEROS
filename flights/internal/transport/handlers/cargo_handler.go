@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	usecase "flights/internal/application/usecase"
-	domain_err "flights/internal/domain/errors"
+	domainerr "flights/internal/domain/errors"
 	"flights/internal/transport/dto"
 	"net/http"
 	"pkg/httperr"
@@ -15,14 +15,14 @@ import (
 )
 
 type CargoHandler struct {
-	flightUseCase usecase.CargoUseCase
-	validator     *validator.Validate
+	cargoUseCase usecase.CargoUseCase
+	validator    *validator.Validate
 }
 
 func NewCargoHandler(useCase usecase.CargoUseCase) (*CargoHandler, error) {
 	return &CargoHandler{
-		flightUseCase: useCase,
-		validator:     validator.New(),
+		cargoUseCase: useCase,
+		validator:    validator.New(),
 	}, nil
 }
 
@@ -36,10 +36,10 @@ func (h *CargoHandler) HandleGetCargoManifest() http.HandlerFunc {
 			return
 		}
 
-		manifest, err := h.flightUseCase.GetCargoManifest(ctx, usecase.GetCargoManifestRequest{ID: id})
+		manifest, err := h.cargoUseCase.GetCargoManifest(ctx, id)
 		if err != nil {
 			switch {
-			case errors.Is(err, domain_err.ErrCargoManifestNotFound):
+			case errors.Is(err, domainerr.ErrCargoManifestNotFound):
 				httperr.Write(w, http.StatusNotFound, "Cargo manifest not found")
 			default:
 				httperr.Write(w, http.StatusInternalServerError, "internal server error")
@@ -47,7 +47,6 @@ func (h *CargoHandler) HandleGetCargoManifest() http.HandlerFunc {
 			return
 		}
 
-		// mapping to DTO
 		response := dto.CargoManifestToResponse(manifest)
 
 		httpresp.OK(w, response)
@@ -56,6 +55,67 @@ func (h *CargoHandler) HandleGetCargoManifest() http.HandlerFunc {
 
 func (h *CargoHandler) HandleGetCargoItems() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		ctx := r.Context()
+
+		cargoId, err := uuid.Parse(r.PathValue("id"))
+		if err != nil {
+			httperr.Write(w, http.StatusBadRequest, "invalid manifest id")
+			return
+		}
+
+		items, err := h.cargoUseCase.GetCargoItems(ctx, cargoId)
+		if err != nil {
+			switch {
+			case errors.Is(err, domainerr.ErrCargoManifestNotFound):
+				httperr.Write(w, http.StatusNotFound, "cargo manifest not found")
+			default:
+				httperr.Write(w, http.StatusInternalServerError, "internal server error")
+			}
+			return
+		}
+
+		response := make([]dto.CargoItemResponse, 0, len(items))
+		for i := range items {
+			response = append(response, dto.CargoItemToResponse(&items[i]))
+		}
+
+		httpresp.OK(w, response)
+	}
+}
+
+func (h *CargoHandler) HandleGetCargoItem() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		ctx := r.Context()
+
+		cargoId, err := uuid.Parse(r.PathValue("id"))
+		if err != nil {
+			httperr.Write(w, http.StatusBadRequest, "invalid manifest id")
+			return
+		}
+
+		itemId, err := uuid.Parse(r.PathValue("item_id"))
+		if err != nil {
+			httperr.Write(w, http.StatusBadRequest, "invalid item id")
+			return
+		}
+
+		item, err := h.cargoUseCase.GetCargoItem(ctx, usecase.GetCargoItemRequest{
+			ManifestID: cargoId,
+			ItemID:     itemId,
+		})
+		if err != nil {
+			switch {
+			case errors.Is(err, domainerr.ErrCargoManifestNotFound):
+				httperr.Write(w, http.StatusNotFound, "cargo manifest not found")
+			case errors.Is(err, domainerr.ErrCargoItemNotFound):
+				httperr.Write(w, http.StatusNotFound, "cargo item not found")
+			default:
+				httperr.Write(w, http.StatusInternalServerError, "internal server error")
+			}
+			return
+		}
+
+		httpresp.OK(w, dto.CargoItemToResponse(item))
 	}
 }
 
@@ -80,7 +140,7 @@ func (h *CargoHandler) HandleAddCargoItem() http.HandlerFunc {
 			return
 		}
 
-		item, err := h.flightUseCase.AddCargoItem(ctx, usecase.AddCargoItemRequest{
+		item, err := h.cargoUseCase.AddCargoItem(ctx, usecase.AddCargoItemRequest{
 			ManifestID:  id,
 			CargoType:   req.CargoType,
 			WeightKg:    req.WeightKg,
@@ -90,13 +150,13 @@ func (h *CargoHandler) HandleAddCargoItem() http.HandlerFunc {
 
 		if err != nil {
 			switch {
-			case errors.Is(err, domain_err.ErrCargoManifestNotFound):
+			case errors.Is(err, domainerr.ErrCargoManifestNotFound):
 				httperr.Write(w, http.StatusNotFound, "cargo manifest not found")
-			case errors.Is(err, domain_err.ErrIncorrectCargoWeigh):
+			case errors.Is(err, domainerr.ErrIncorrectCargoWeigh):
 				httperr.Write(w, http.StatusUnprocessableEntity, "incorrect cargo weight")
-			case errors.Is(err, domain_err.ErrLuggageWithoutOwner):
+			case errors.Is(err, domainerr.ErrLuggageWithoutOwner):
 				httperr.Write(w, http.StatusUnprocessableEntity, "luggage without owner")
-			case errors.Is(err, domain_err.ErrMaxWeightExceeded):
+			case errors.Is(err, domainerr.ErrMaxWeightExceeded):
 				httperr.Write(w, http.StatusUnprocessableEntity, "max weight exceeded")
 			default:
 				httperr.Write(w, http.StatusInternalServerError, "internal server error")
@@ -110,10 +170,71 @@ func (h *CargoHandler) HandleAddCargoItem() http.HandlerFunc {
 
 func (h *CargoHandler) HandleDeleteCargoItem() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		ctx := r.Context()
+
+		cargoId, err := uuid.Parse(r.PathValue("id"))
+		if err != nil {
+			httperr.Write(w, http.StatusBadRequest, "invalid manifest id")
+			return
+		}
+
+		itemId, err := uuid.Parse(r.PathValue("item_id"))
+		if err != nil {
+			httperr.Write(w, http.StatusBadRequest, "invalid item id")
+			return
+		}
+
+		err = h.cargoUseCase.DeleteCargoItem(ctx, cargoId, itemId)
+		if err != nil {
+			httperr.Write(w, http.StatusInternalServerError, "Failed to delete cargo item")
+			return
+		}
+
+		w.WriteHeader(http.StatusNoContent)
 	}
 }
 
 func (h *CargoHandler) HandleMoveCargoItem() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		ctx := r.Context()
+
+		cargoId, err := uuid.Parse(r.PathValue("id"))
+		if err != nil {
+			httperr.Write(w, http.StatusBadRequest, "invalid manifest id")
+			return
+		}
+
+		req := &dto.MoveCargoItemRequest{}
+		if err := json.NewDecoder(r.Body).Decode(req); err != nil {
+			httperr.Write(w, http.StatusBadRequest, "Invalid JSON body")
+			return
+		}
+
+		if err := h.validator.Struct(req); err != nil {
+			httperr.Write(w, http.StatusBadRequest, err.Error())
+			return
+		}
+
+		err = h.cargoUseCase.MoveCargoItem(ctx, usecase.MoveCargoItemRequest{
+			ItemID:     req.ItemID,
+			CargoID:    cargoId,
+			NewCargoID: req.NewCargoID,
+		})
+
+		if err != nil {
+			switch {
+			case errors.Is(err, domainerr.ErrCargoManifestNotFound):
+				httperr.Write(w, http.StatusNotFound, "cargo manifest not found")
+			case errors.Is(err, domainerr.ErrCargoItemNotFound):
+				httperr.Write(w, http.StatusNotFound, "cargo item not found")
+			case errors.Is(err, domainerr.ErrMaxWeightExceeded):
+				httperr.Write(w, http.StatusUnprocessableEntity, "max weight exceeded")
+			default:
+				httperr.Write(w, http.StatusInternalServerError, "internal server error")
+			}
+			return
+		}
+
+		w.WriteHeader(http.StatusOK)
 	}
 }

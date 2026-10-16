@@ -37,22 +37,18 @@ services:
   postgres:
     image: postgres:16
     container_name: postgres
+    restart: always
     ports:
       - "5432:5432"
     environment:
       POSTGRES_DB: flights
       POSTGRES_USER: user
       POSTGRES_PASSWORD: "123"
+      PGDATA: /var/lib/postgresql/data
     volumes:
-      - postgres_data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U user -d flights"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
+      - ./postgres_data:/var/lib/postgresql/data
     networks:
       - aeros_network
-    restart: unless-stopped
 
   kafka:
     image: apache/kafka:4.1.0

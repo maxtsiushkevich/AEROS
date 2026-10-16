@@ -17,4 +17,4 @@ auth_server:
 kafka:
     brokers:
         - localhost:9092
-    topic: topic
+    topic: users

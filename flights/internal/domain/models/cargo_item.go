@@ -49,3 +49,7 @@ func NewCargoItem(
 		Description: description,
 	}, nil
 }
+
+func (ci *CargoItem) Move(newManifestId uuid.UUID) {
+	ci.ManifestID = newManifestId
+}
