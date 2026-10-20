@@ -115,7 +115,7 @@ func (s *Server) configRoutes(router *gin.Engine) {
 	protected.Use(middleware.GinAuthMiddleware(s.rbacService))
 
 	protected.GET("", s.userHandler.Profile)
-	protected.POST("/activate", s.userHandler.ActivateUserByCode)       // endpoint for self-activation with code
-	protected.POST("/:userId/activate", s.userHandler.AdminUserByAdmin) // endpoint for admin activation
-	protected.POST("/request-activation", s.userHandler.RequestActivationCode)
+	protected.POST("/activate", s.userHandler.ActivateUserByCode)          // endpoint for self-activation with code
+	protected.POST("/:userId/activate", s.userHandler.ActivateUserByAdmin) // endpoint for admin activation
+	protected.POST("/request-code", s.userHandler.RequestCode)
 }

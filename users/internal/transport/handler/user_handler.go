@@ -135,8 +135,16 @@ func (h *UserHandler) ActivateUserByCode(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"status": "activated"})
 }
 
-func (h *UserHandler) RequestActivationCode(c *gin.Context) {
+func (h *UserHandler) RequestCode(c *gin.Context) {
 	ctx := c.Request.Context()
+
+	var req dto.OTPRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": err.Error(),
+		})
+		return
+	}
 
 	claims, ok := helpers.ClaimsFromContextGin(c)
 	if !ok {
@@ -146,7 +154,7 @@ func (h *UserHandler) RequestActivationCode(c *gin.Context) {
 		return
 	}
 
-	err := h.service.RequestActivationCode(ctx, claims.Id, claims.Email)
+	err := h.service.RequestCode(ctx, claims.Id, claims.Email, req.Purpose)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"error": "failed to send activation code",
@@ -156,7 +164,7 @@ func (h *UserHandler) RequestActivationCode(c *gin.Context) {
 	c.JSON(http.StatusAccepted, gin.H{"status": "activation code sent"})
 }
 
-func (h *UserHandler) AdminUserByAdmin(c *gin.Context) {
+func (h *UserHandler) ActivateUserByAdmin(c *gin.Context) {
 	ctx := c.Request.Context()
 
 	id := c.Param("userId")
@@ -168,7 +176,7 @@ func (h *UserHandler) AdminUserByAdmin(c *gin.Context) {
 		return
 	}
 
-	err = h.service.AdminActivateUser(ctx, parsed)
+	err = h.service.ActivateUserByAdmin(ctx, parsed)
 	if err != nil {
 		if errors.Is(err, domainerr.ErrUserAlreadyActivated) {
 			c.JSON(http.StatusConflict, gin.H{

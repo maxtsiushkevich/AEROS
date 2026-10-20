@@ -1,19 +1,14 @@
 package producer
 
+import "users/internal/domain/otp"
+
 type SendOTPEvent struct {
-	Email   string     `json:"email"`
-	OTP     string     `json:"otp"`
-	Purpose OTPPurpose `json:"purpose"`
+	Email   string         `json:"email"`
+	OTP     string         `json:"otp"`
+	Purpose otp.OTPPurpose `json:"purpose"`
 }
 
-type OTPPurpose string
-
-const (
-	ActivateProfile OTPPurpose = "ActivateProfile"
-	ChangeEmail     OTPPurpose = "ChangeEmail"
-)
-
-func GetOTPEventMessage(email string, otp string, purpose OTPPurpose) SendOTPEvent {
+func GetOTPEventMessage(email string, otp string, purpose otp.OTPPurpose) SendOTPEvent {
 	return SendOTPEvent{
 		Email:   email,
 		OTP:     otp,

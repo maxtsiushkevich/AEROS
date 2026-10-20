@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"time"
 	"users/internal/config"
+	"users/internal/domain/otp"
 
 	"github.com/redis/go-redis/v9"
 )
@@ -46,8 +47,8 @@ func (c *RedisOTPCache) Shutdown() error {
 	return nil
 }
 
-func (c *RedisOTPCache) Get(ctx context.Context, email string) ([]byte, error) {
-	value, err := c.client.Get(ctx, c.topic+":"+email).Bytes()
+func (c *RedisOTPCache) Get(ctx context.Context, email string, purpose otp.OTPPurpose) ([]byte, error) {
+	value, err := c.client.Get(ctx, c.topic+":"+email+":"+string(purpose)).Bytes()
 	if err != nil {
 		return nil, err
 	}
@@ -55,8 +56,8 @@ func (c *RedisOTPCache) Get(ctx context.Context, email string) ([]byte, error) {
 	return value, nil
 }
 
-func (c *RedisOTPCache) Set(ctx context.Context, email string, code []byte, ttl time.Duration) error {
-	return c.client.Set(ctx, c.topic+":"+email, code, ttl).Err()
+func (c *RedisOTPCache) Set(ctx context.Context, email string, purpose otp.OTPPurpose, code []byte, ttl time.Duration) error {
+	return c.client.Set(ctx, c.topic+":"+email+":"+string(purpose), code, ttl).Err()
 }
 
 func (c *RedisOTPCache) Delete(ctx context.Context, email string) error {

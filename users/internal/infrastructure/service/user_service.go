@@ -9,9 +9,9 @@ import (
 	"users/internal/domain/cache"
 	domainerr "users/internal/domain/errors"
 	"users/internal/domain/models"
+	"users/internal/domain/otp"
 	"users/internal/domain/producer"
 	"users/internal/domain/repository"
-	"users/internal/infrastructure/utils"
 
 	"github.com/google/uuid"
 	"google.golang.org/grpc"
@@ -66,26 +66,26 @@ func (s *UserService) RegisterUser(ctx context.Context, name string, email strin
 		return nil, nil, err
 	}
 
-	code, err := utils.GenerateOTP(6)
+	code, err := otp.GenerateOTP(6)
 	if err != nil {
 		s.logger.Error("Failed to generate OTP", "err", err)
 		return &resp.AccessToken, &resp.RefreshToken, nil
 	}
 
-	err = s.otpCache.Set(ctx, email, []byte(code), 10*time.Minute)
+	err = s.otpCache.Set(ctx, email, otp.ActivateProfile, []byte(code), 10*time.Minute)
 	if err != nil {
 		s.logger.Error("Failed to store OTP in cache", "err", err)
 		return &resp.AccessToken, &resp.RefreshToken, nil
 	}
 
 	if s.publisher != nil {
-		go s.publisher.Publish(ctx, producer.GetOTPEventMessage(email, code, producer.ActivateProfile))
+		go s.publisher.Publish(ctx, producer.GetOTPEventMessage(email, code, otp.ActivateProfile))
 	}
 
 	return &resp.AccessToken, &resp.RefreshToken, nil
 }
 
-func (s *UserService) AdminActivateUser(ctx context.Context, id uuid.UUID) error {
+func (s *UserService) ActivateUserByAdmin(ctx context.Context, id uuid.UUID) error {
 	u, err := s.storage.Read(ctx, id)
 	if err != nil {
 		return err
@@ -104,7 +104,7 @@ func (s *UserService) ActivateUserByCode(ctx context.Context, id uuid.UUID, code
 		return err
 	}
 
-	cachedCode, err := s.otpCache.Get(ctx, u.Email)
+	cachedCode, err := s.otpCache.Get(ctx, u.Email, otp.ActivateProfile)
 	if err != nil {
 		return domainerr.ErrUserActivationFailed
 	}
@@ -129,30 +129,45 @@ func (s *UserService) Profile(ctx context.Context, id uuid.UUID) (*models.User, 
 	return s.storage.Read(ctx, id)
 }
 
-func (s *UserService) RequestActivationCode(ctx context.Context, id uuid.UUID, email string) error {
-	code, err := utils.GenerateOTP(6)
+func (s *UserService) RequestCode(ctx context.Context, id uuid.UUID, email string, purpose otp.OTPPurpose) error {
+	code, err := otp.GenerateOTP(6)
 	if err != nil {
 		s.logger.Error("Failed to generate OTP", "err", err)
 		return err
 	}
 
-	err = s.otpCache.Set(ctx, email, []byte(code), 10*time.Minute)
+	err = s.otpCache.Set(ctx, email, purpose, []byte(code), 10*time.Minute)
 	if err != nil {
 		s.logger.Error("Failed to store OTP in cache", "err", err)
 		return err
 	}
 
 	if s.publisher != nil {
-		go s.publisher.Publish(ctx, producer.GetOTPEventMessage(email, code, producer.ActivateProfile))
+		go s.publisher.Publish(ctx, producer.GetOTPEventMessage(email, code, purpose))
 	}
 
 	return nil
 }
 
-func (s *UserService) ChangeEmail(ctx context.Context, id uuid.UUID, newEmail string) error {
-	return nil
-}
+// func (s *UserService) ChangeEmail(ctx context.Context, id uuid.UUID, newEmail string) error {
+// 	code, err := utils.GenerateOTP(6)
+// 	if err != nil {
+// 		s.logger.Error("Failed to generate OTP", "err", err)
+// 		return err
+// 	}
 
-func (s *UserService) DeleteUser(ctx context.Context, id uuid.UUID) error {
-	return nil
-}
+// 	err = s.otpCache.Set(ctx, newEmail, producer.ChangeEmail, []byte(code), 10*time.Minute)
+// 	if err != nil {
+// 		s.logger.Error("Failed to store OTP in cache", "err", err)
+// 		return err
+// 	}
+
+// 	if s.publisher != nil {
+// 		go s.publisher.Publish(ctx, producer.GetOTPEventMessage(newEmail, code, producer.ChangeEmail))
+// 	}
+// 	return nil
+// }
+
+// func (s *UserService) DeleteUser(ctx context.Context, id uuid.UUID) error {
+// 	return nil
+// }
