@@ -185,6 +185,13 @@ func (h *UserHandler) ActivateUserByAdmin(c *gin.Context) {
 			return
 		}
 
+		if errors.Is(err, domainerr.ErrUserNotFound) {
+			c.JSON(http.StatusNotFound, gin.H{
+				"error": "User not found",
+			})
+			return
+		}
+
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"error": "failed to activate user",
 		})

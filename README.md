@@ -212,13 +212,13 @@ The users API is defined in [users/api/openapi.yaml](users/api/openapi.yaml).
 
 | Method | Endpoint | Purpose |
 |---|---|---|
-| `GET` | `/api/v1/users` | Read the authenticated account (Bearer access token) |
-| `POST` | `/api/v1/users/registration` | Register and create the auth account; returns an access token and refresh-token cookie, publish activation code |
-| `POST` | `/api/v1/users/request-activation` | Generate and publish a new activation code |
+| `GET` | `/api/v1/users` | Read the authenticated account (Bearer access token required) |
+| `POST` | `/api/v1/users/registration` | Register an account; returns an access token and refresh-token cookie, and publishes an activation code |
+| `POST` | `/api/v1/users/request-code` | Request an OTP by specifying its purpose (`ActivateProfile` or `ChangeEmail`) |
 | `POST` | `/api/v1/users/activate` | Activate the authenticated account using the submitted OTP code |
 | `POST` | `/api/v1/users/{userId}/activate` | Admin activation of the specified account |
 
-Activation codes are cached in Redis for 10 minutes. The users service publishes OTP events to the configured Kafka topic (default `users`). The request and self-activation routes require a valid Bearer token. See [users/api/openapi.yaml](users/api/openapi.yaml) for the API contract; it currently needs to be brought in sync with the OTP routes.
+OTP codes are cached in Redis for 10 minutes. The users service publishes OTP events to the configured Kafka topic (default `users`). All routes except registration require a valid Bearer access token and are subject to RBAC authorization. See [users/api/openapi.yaml](users/api/openapi.yaml) for request and response details.
 
 ## Configuration and security
 

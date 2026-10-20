@@ -2,7 +2,7 @@ openapi: 3.0.3
 info:
   title: Users API
   version: 1.0.0
-  description: HTTP API for user registration, profile lookup, and account activation.
+  description: HTTP API for user registration, profile lookup, OTP requests, and account activation.
 servers:
   - url: http://localhost:3002
     description: Local development server
@@ -73,6 +73,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Authenticated user is not authorized by RBAC to use this operation.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         '500':
           description: Failed to load profile.
           content:
@@ -112,6 +118,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Authenticated user is not authorized by RBAC to use this operation.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         '409':
           description: Account is already activated.
           content:
@@ -125,28 +137,46 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
-  /api/v1/users/request-activation:
+  /api/v1/users/request-code:
     post:
       tags: [Users]
-      summary: Request a new activation code
-      operationId: requestActivationCode
+      summary: Request a one-time code
+      operationId: requestOTPCode
       security:
         - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OTPRequest'
       responses:
         '202':
-          description: Activation code request accepted.
+          description: Code request accepted.
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/StatusResponse'
+        '400':
+          description: Request body is invalid or purpose is unsupported.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         '401':
           description: Missing or invalid bearer token.
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Authenticated user is not authorized by RBAC to use this operation.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         '500':
-          description: Failed to generate or store the activation code.
+          description: Failed to generate or store the code.
           content:
             application/json:
               schema:
@@ -172,6 +202,12 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
         '403':
           description: Authenticated user is not authorized by RBAC to use this operation.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: User was not found.
           content:
             application/json:
               schema:
@@ -249,6 +285,15 @@ components:
         code:
           type: string
           description: One-time activation code delivered through the configured event flow.
+
+    OTPRequest:
+      type: object
+      required: [purpose]
+      properties:
+        purpose:
+          type: string
+          enum: [ActivateProfile, ChangeEmail]
+          description: Purpose for which the one-time code is requested.
 
     StatusResponse:
       type: object
