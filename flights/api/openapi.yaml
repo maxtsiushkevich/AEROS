@@ -9,6 +9,8 @@ servers:
 tags:
   - name: Flights
     description: Flight management operations
+  - name: Cargo
+    description: Cargo manifests and manifest items
 paths:
   /api/v1/flights:
     get:
@@ -93,17 +95,7 @@ paths:
         '204':
           description: Flight deleted successfully.
         '400':
-          description: The flight id is missing or not a UUID.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '404':
-          description: Flight was not found.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
+          $ref: '#/components/responses/BadRequest'
         '500':
           description: Flight could not be deleted.
           content:
@@ -213,6 +205,142 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
+  /api/v1/cargo/{id}:
+    get:
+      tags: [Cargo]
+      summary: Get a cargo manifest
+      operationId: getCargoManifest
+      parameters:
+        - $ref: '#/components/parameters/CargoManifestIDPath'
+      responses:
+        '200':
+          description: Cargo manifest returned successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CargoManifest'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /api/v1/cargo/{id}/items:
+    get:
+      tags: [Cargo]
+      summary: List items in a cargo manifest
+      operationId: getCargoItems
+      parameters:
+        - $ref: '#/components/parameters/CargoManifestIDPath'
+      responses:
+        '200':
+          description: Cargo items returned successfully.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/CargoItem'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /api/v1/cargo/{id}/items/{item_id}:
+    get:
+      tags: [Cargo]
+      summary: Get one cargo item
+      operationId: getCargoItem
+      parameters:
+        - $ref: '#/components/parameters/CargoManifestIDPath'
+        - $ref: '#/components/parameters/CargoItemIDPath'
+      responses:
+        '200':
+          description: Cargo item returned successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CargoItem'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /api/v1/cargo/{id}/add:
+    post:
+      tags: [Cargo]
+      summary: Add an item to a cargo manifest
+      operationId: addCargoItem
+      parameters:
+        - $ref: '#/components/parameters/CargoManifestIDPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AddCargoItemRequest'
+      responses:
+        '201':
+          description: Cargo item created.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CargoItem'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /api/v1/cargo/{id}/delete/{item_id}:
+    delete:
+      tags: [Cargo]
+      summary: Delete an item from a cargo manifest
+      operationId: deleteCargoItem
+      parameters:
+        - $ref: '#/components/parameters/CargoManifestIDPath'
+        - $ref: '#/components/parameters/CargoItemIDPath'
+      responses:
+        '204':
+          description: Cargo item deleted.
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /api/v1/cargo/{id}/move:
+    post:
+      tags: [Cargo]
+      summary: Move an item to another cargo manifest
+      operationId: moveCargoItem
+      parameters:
+        - $ref: '#/components/parameters/CargoManifestIDPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MoveCargoItemRequest'
+      responses:
+        '200':
+          description: Cargo item moved (empty response body).
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
 components:
   parameters:
     FlightIDPath:
@@ -220,6 +348,22 @@ components:
       in: path
       required: true
       description: UUID of the flight.
+      schema:
+        type: string
+        format: uuid
+    CargoManifestIDPath:
+      name: id
+      in: path
+      required: true
+      description: UUID of the cargo manifest.
+      schema:
+        type: string
+        format: uuid
+    CargoItemIDPath:
+      name: item_id
+      in: path
+      required: true
+      description: UUID of the cargo item.
       schema:
         type: string
         format: uuid
@@ -400,6 +544,77 @@ components:
         message:
           type: string
 
+    CargoType:
+      type: string
+      enum: [Luggage, Cargo, Mail, Equipment, Dangerous]
+
+    CargoItem:
+      type: object
+      required: [id, cargo_type, weight_kg, description]
+      properties:
+        id:
+          type: string
+          format: uuid
+        cargo_type:
+          $ref: '#/components/schemas/CargoType'
+        weight_kg:
+          type: integer
+          minimum: 1
+        passenger_id:
+          type: string
+          format: uuid
+          description: Required by business rules for Luggage items.
+        description:
+          type: string
+          minLength: 5
+
+    CargoManifest:
+      type: object
+      required: [id, flight_id, max_weight_kg, current_weight_kg, items]
+      properties:
+        id:
+          type: string
+          format: uuid
+        flight_id:
+          type: string
+          format: uuid
+        max_weight_kg:
+          type: integer
+        current_weight_kg:
+          type: integer
+        items:
+          type: object
+          additionalProperties:
+            $ref: '#/components/schemas/CargoItem'
+
+    AddCargoItemRequest:
+      type: object
+      required: [cargo_type, weight_kg, description]
+      properties:
+        cargo_type:
+          $ref: '#/components/schemas/CargoType'
+        weight_kg:
+          type: integer
+          minimum: 1
+        passenger_id:
+          type: string
+          format: uuid
+          description: Required by business rules when cargo_type is Luggage.
+        description:
+          type: string
+          minLength: 5
+
+    MoveCargoItemRequest:
+      type: object
+      required: [item_id, new_cargo_id]
+      properties:
+        item_id:
+          type: string
+          format: uuid
+        new_cargo_id:
+          type: string
+          format: uuid
+
     ErrorResponse:
       type: object
       required:
@@ -411,6 +626,24 @@ components:
   responses:
     BadRequest:
       description: Invalid JSON, UUID, date, or request field.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    NotFound:
+      description: Requested flight, manifest, or item was not found.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    UnprocessableEntity:
+      description: Request violates cargo weight or ownership rules.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    InternalServerError:
+      description: Internal server error.
       content:
         application/json:
           schema:

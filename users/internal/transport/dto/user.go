@@ -13,6 +13,10 @@ type RegisterUserRequest struct {
 	Password string    `json:"password" validate:"required,min=8"`
 }
 
+type ActivateUserByCodeRequest struct {
+	Code string `json:"code"`
+}
+
 type UserResponse struct {
 	Id          uuid.UUID  `json:"id"`
 	Name        string     `json:"name"`

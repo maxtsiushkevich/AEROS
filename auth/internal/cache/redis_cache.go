@@ -17,7 +17,7 @@ type RedisRevokedTokenCache struct {
 func NewRedis(cfg *config.Config, logger *slog.Logger) (*RedisRevokedTokenCache, error) {
 	client := redis.NewClient(&redis.Options{
 		Addr:     cfg.Redis.Address,
-		Password: cfg.Database.Password,
+		Password: cfg.Redis.Password,
 		DB:       cfg.Redis.Db,
 		Protocol: cfg.Redis.Protocol,
 	})

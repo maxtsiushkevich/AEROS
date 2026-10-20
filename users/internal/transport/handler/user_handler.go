@@ -89,7 +89,7 @@ func (h *UserHandler) Profile(c *gin.Context) {
 	c.JSON(http.StatusOK, dto.ToUserResponse(u))
 }
 
-func (h *UserHandler) Activate(c *gin.Context) {
+func (h *UserHandler) ActivateUserByCode(c *gin.Context) {
 	ctx := c.Request.Context()
 
 	claims, ok := helpers.ClaimsFromContextGin(c)
@@ -100,6 +100,65 @@ func (h *UserHandler) Activate(c *gin.Context) {
 		return
 	}
 
+	var req dto.ActivateUserByCodeRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": err.Error(),
+		})
+		return
+	}
+
+	err := h.service.ActivateUserByCode(ctx, claims.Id, req.Code)
+
+	if err != nil {
+		switch {
+		case errors.Is(err, domainerr.ErrInvalidOTP):
+			c.JSON(http.StatusBadRequest, gin.H{
+				"error": "invalid activation code",
+			})
+		case errors.Is(err, domainerr.ErrUserAlreadyActivated):
+			c.JSON(http.StatusConflict, gin.H{
+				"error": "user is already activated",
+			})
+		case errors.Is(err, domainerr.ErrUserActivationFailed):
+			c.JSON(http.StatusUnauthorized, gin.H{
+				"error": "activation code expired or unavailable",
+			})
+		default:
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"error": "failed to activate user",
+			})
+		}
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"status": "activated"})
+}
+
+func (h *UserHandler) RequestActivationCode(c *gin.Context) {
+	ctx := c.Request.Context()
+
+	claims, ok := helpers.ClaimsFromContextGin(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"error": "claims not found",
+		})
+		return
+	}
+
+	err := h.service.RequestActivationCode(ctx, claims.Id, claims.Email)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": "failed to send activation code",
+		})
+	}
+
+	c.JSON(http.StatusAccepted, gin.H{"status": "activation code sent"})
+}
+
+func (h *UserHandler) AdminUserByAdmin(c *gin.Context) {
+	ctx := c.Request.Context()
+
 	id := c.Param("userId")
 	parsed, err := uuid.Parse(id)
 	if err != nil {
@@ -109,14 +168,7 @@ func (h *UserHandler) Activate(c *gin.Context) {
 		return
 	}
 
-	if claims.Id != parsed {
-		c.JSON(http.StatusForbidden, gin.H{
-			"error": "You are not allowed to activate",
-		})
-		return
-	}
-
-	err = h.service.ActivateUser(ctx, parsed)
+	err = h.service.AdminActivateUser(ctx, parsed)
 	if err != nil {
 		if errors.Is(err, domainerr.ErrUserAlreadyActivated) {
 			c.JSON(http.StatusConflict, gin.H{

@@ -25,6 +25,11 @@ paths:
       responses:
         '201':
           description: User was created and an access token was issued.
+          headers:
+            Set-Cookie:
+              description: HttpOnly refresh token cookie (refresh_token, Path=/).
+              schema:
+                type: string
           content:
             application/json:
               schema:
@@ -75,10 +80,82 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
+  /api/v1/users/activate:
+    post:
+      tags: [Users]
+      summary: Activate the authenticated user's account with an OTP
+      operationId: activateUserByCode
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ActivateUserByCodeRequest'
+      responses:
+        '200':
+          description: Account activated successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StatusResponse'
+        '400':
+          description: Invalid request or activation code.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Missing/invalid bearer token or OTP unavailable/expired.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Account is already activated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Activation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/users/request-activation:
+    post:
+      tags: [Users]
+      summary: Request a new activation code
+      operationId: requestActivationCode
+      security:
+        - bearerAuth: []
+      responses:
+        '202':
+          description: Activation code request accepted.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StatusResponse'
+        '401':
+          description: Missing or invalid bearer token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Failed to generate or store the activation code.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
   /api/v1/users/{userId}/activate:
     post:
       tags: [Users]
-      summary: Activate a user account
+      summary: Activate a user account administratively
       operationId: activateUser
       security:
         - bearerAuth: []
@@ -86,7 +163,7 @@ paths:
         - $ref: '#/components/parameters/UserIDPath'
       responses:
         '200':
-          description: User account was activated successfully.
+          description: Account activated successfully (empty response body).
         '401':
           description: Missing or invalid bearer token.
           content:
@@ -94,7 +171,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
         '403':
-          description: The user is not allowed to activate this account.
+          description: Authenticated user is not authorized by RBAC to use this operation.
           content:
             application/json:
               schema:
@@ -106,7 +183,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
         '500':
-          description: Failed to activate the account.
+          description: Invalid user ID or failed to activate the account.
           content:
             application/json:
               schema:
@@ -164,6 +241,22 @@ components:
         access_token:
           type: string
           description: JWT access token returned after successful registration.
+
+    ActivateUserByCodeRequest:
+      type: object
+      required: [code]
+      properties:
+        code:
+          type: string
+          description: One-time activation code delivered through the configured event flow.
+
+    StatusResponse:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+          enum: [activated, activation code sent]
 
     UserResponse:
       type: object

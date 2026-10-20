@@ -85,7 +85,8 @@ INSERT INTO public.roles (name, description, created_at, updated_at)
 VALUES
     ('user', 'user', NOW(), NOW()),
     ('admin', 'admin', NOW(), NOW()),
-    ('superadmin', 'superadmin', NOW(), NOW());
+    ('superadmin', 'superadmin', NOW(), NOW()),
+    ('unconfirmed_user', 'unconfirmed_user', NOW(), NOW());
 
 INSERT INTO public.user_roles (
     user_id,

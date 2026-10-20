@@ -95,23 +95,31 @@ func (s *Server) configureRouter(router *http.ServeMux) {
 	auth.HandleFunc("POST /logout", mw.Apply(s.auth.HandleLogout()))
 	auth.HandleFunc("POST /change-password", secureMw.Apply(s.auth.HandleChangePassword()))
 
+	rbac.Handle("GET /roles", mw.Apply(s.rbac.ListRoles()))
 	rbac.Handle("PUT /roles", mw.Apply(s.rbac.CreateRole()))           // create role
 	rbac.Handle("DELETE /roles/{role}", mw.Apply(s.rbac.DeleteRole())) // delete role
 
-	rbac.Handle("PUT /actions", mw.Apply(s.rbac.CreateAction()))         // create action
-	rbac.Handle("PUT /resources", mw.Apply(s.rbac.CreateResource()))     // create resource
+	rbac.Handle("GET /actions", mw.Apply(s.rbac.ListActions()))
+	rbac.Handle("PUT /actions", mw.Apply(s.rbac.CreateAction())) // create action
+
+	rbac.Handle("GET /resources", mw.Apply(s.rbac.ListResources()))
+	rbac.Handle("PUT /resources", mw.Apply(s.rbac.CreateResource())) // create resource
+
+	rbac.Handle("GET /permissions", mw.Apply(s.rbac.ListPermissions()))
 	rbac.Handle("PUT /permissions", mw.Apply(s.rbac.CreatePermission())) // create permission
 
-	rbac.Handle("PUT /roles/{role_name}/permissions", mw.Apply(s.rbac.GrantPermissionToRole())) // grant permission to role
-
+	rbac.Handle("PUT /roles/{role_name}/permissions", mw.Apply(s.rbac.GrantPermissionToRole()))       // grant permission to role
 	rbac.Handle("DELETE /roles/{role_name}/permissions", mw.Apply(s.rbac.RevokePermissionFromRole())) // revoke permission from role
 	// DELETE /api/v1/rbac/roles/admin/permissions?resource=rbac/resources&action=read
 
+	rbac.Handle("GET /users/{user_id}/roles", mw.Apply(s.rbac.ListUserRoles()))
 	rbac.Handle("PUT /users/{user_id}/roles", mw.Apply(s.rbac.AssignRoleToUser()))                  // assign role to user
 	rbac.Handle("DELETE /users/{user_id}/roles/{role_name}", mw.Apply(s.rbac.RemoveRoleFromUser())) // remove role from user
 
 	router.Handle("/api/v1/rbac/", http.StripPrefix("/api/v1/rbac", rbac))
 	router.Handle("/api/v1/auth/", http.StripPrefix("/api/v1/auth", auth))
+
+	router.Handle("/admin/rbac", s.rbacAdminPage())
 
 	s.logger.Info("Router configured")
 }

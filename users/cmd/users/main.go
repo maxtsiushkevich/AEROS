@@ -12,6 +12,7 @@ import (
 
 	"users/internal/config"
 	"users/internal/infrastructure/postgres"
+	"users/internal/infrastructure/redis"
 	"users/internal/transport/http"
 )
 
@@ -46,7 +47,13 @@ func main() {
 		return
 	}
 
-	srv := http.NewServer(&cfg, logger, rbacService, db)
+	cache, err := redis.NewRedisOTPCache(&cfg, logger)
+	if err != nil {
+		logger.Error("Failed to open Redis", "err", err)
+		return
+	}
+
+	srv := http.NewServer(&cfg, logger, rbacService, db, cache)
 	srv.Start()
 
 	<-shutdown

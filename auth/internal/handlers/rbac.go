@@ -66,6 +66,20 @@ func (h *RbacHandler) CreateRole() http.HandlerFunc {
 	}
 }
 
+func (h *RbacHandler) ListRoles() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		roles, err := h.service.ListRoles(r.Context())
+		if err != nil {
+			httperr.Write(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(roles)
+	}
+}
+
 func (h *RbacHandler) DeleteRole() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		roleName := r.PathValue("role")
@@ -115,6 +129,20 @@ func (h *RbacHandler) CreateAction() http.HandlerFunc {
 	}
 }
 
+func (h *RbacHandler) ListActions() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		actions, err := h.service.ListActions(r.Context())
+		if err != nil {
+			httperr.Write(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(actions)
+	}
+}
+
 func (h *RbacHandler) CreateResource() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		ctx := r.Context()
@@ -140,6 +168,20 @@ func (h *RbacHandler) CreateResource() http.HandlerFunc {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusCreated)
 		json.NewEncoder(w).Encode(resource.ToResponse())
+	}
+}
+
+func (h *RbacHandler) ListResources() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		resources, err := h.service.ListResources(r.Context())
+		if err != nil {
+			httperr.Write(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(resources)
 	}
 }
 
@@ -172,6 +214,20 @@ func (h *RbacHandler) CreatePermission() http.HandlerFunc {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusCreated)
 		json.NewEncoder(w).Encode(perm.ToResponse())
+	}
+}
+
+func (h *RbacHandler) ListPermissions() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		permissions, err := h.service.ListPermissions(r.Context())
+		if err != nil {
+			httperr.Write(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(permissions)
 	}
 }
 
@@ -258,6 +314,27 @@ func (h *RbacHandler) AssignRoleToUser() http.HandlerFunc {
 		w.WriteHeader(http.StatusNoContent)
 	}
 }
+
+func (h *RbacHandler) ListUserRoles() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		userID, err := uuid.Parse(r.PathValue("user_id"))
+		if err != nil {
+			httperr.Write(w, http.StatusBadRequest, "invalid user id")
+			return
+		}
+
+		userRoles, err := h.service.ListUserRoles(r.Context(), userID)
+		if err != nil {
+			httperr.Write(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(userRoles)
+	}
+}
+
 func (h *RbacHandler) RemoveRoleFromUser() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		userID, err := uuid.Parse(r.PathValue("user_id"))

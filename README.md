@@ -1,27 +1,26 @@
 # AEROS
 
-AEROS (Airline Enterprise Resource Operations System) is a Go-based airline management system.
+AEROS (Airline Enterprise Resource Operations System) is a Go-based airline management system built as a set of independently runnable services.
 
 ## Overview
 
-
-- `auth/` — authentication service, JWT handling, RBAC API, and gRPC auth server
-- `flights/` — flight catalog and operational endpoints
-- `users/` — user API and auth-client integration
-- `pkg/` — shared packages used by Go services (`httpresp`, `httperr`, middleware, RBAC helpers)
-- `rbac_config/` — Casbin model and configuration
-- `docker-compose.yaml` — local infrastructure stack for Redis, PostgreSQL, Kafka, and admin UIs
+- `auth/` — authentication, JWT issuance/revocation, RBAC HTTP API, and gRPC server
+- `users/` — user registration, profile, OTP-based activation, and Kafka event publishing
+- `flights/` — flight operations and per-flight cargo manifests/items
+- `pkg/` — shared HTTP helpers, JWT/middleware, and Casbin RBAC implementation
+- `rbac_config/` — Casbin model and local RBAC configuration
+- `docker-compose.yaml` — local infrastructure
+- `configs/` — configuration files mounted into the Compose auth container
 
 ### Main modules
 
 | Module | Responsibility |
 |---|---|
-| `auth/` | Login, refresh/logout flow, access and refresh token validation, RBAC HTTP API, gRPC auth server |
-| `flights/` | Flight CRUD, search, status updates, date-based filtering |
-| `users/` | User API and gRPC client used for registration/activation workflows |
-| `pkg/` | Shared HTTP response helpers, middleware, JWT tooling, RBAC layer |
-| `rbac_config/` | Casbin model and config values |
-| `aeros-ui/` | Simple UI to create and manage flights |
+| `auth/` | Login, refresh/logout, password changes, RBAC administration, and gRPC auth server |
+| `flights/` | Flight CRUD/search/status operations and cargo manifest/item management |
+| `users/` | User registration/profile, OTP activation through Redis and Kafka, and auth gRPC client |
+| `pkg/` | Shared HTTP helpers, JWT tooling, auth middleware, and PostgreSQL-backed RBAC |
+| `rbac_config/` | Casbin model and RBAC configuration |
 
 Each Go module is independent and uses the shared package through `replace pkg => ../pkg`.
 
@@ -31,9 +30,10 @@ Each Go module is independent and uses the shared package through `replace pkg =
 
 | Technology | Purpose |
 |---|---|
-| Go | Core microservices |
-| Gin | HTTP routing |
-| Redis | Caching |
+| Go | Core microservices|
+| Gin | HTTP routing|
+| `net/http` | HTTP routing |
+| Redis | Refresh-token revocation, OTP cache, and RBAC policy-change notifications |
 | gRPC | Auth service integration |
 | Protobuf | Auth contracts |
 | GORM | ORM layer for PostgreSQL |
@@ -42,14 +42,14 @@ Each Go module is independent and uses the shared package through `replace pkg =
 | `validator/v10` | Request validation |
 | `google/uuid` | ID generation |
 | `log/slog` | Structured logging |
-| Kafka | Message broker |
+| Kafka | User OTP event transport |
 
 ### Auth and authorization
 
 | Technology | Purpose |
 |---|---|
 | JWT | Access/refresh tokens |
-| Redis | Token revocation cache and RBAC update bus |
+| Redis | Refresh-token revocation, user OTP cache, and RBAC update notifications |
 | Casbin | Role-based access control |
 | bcrypt | Password hashing |
 
@@ -57,14 +57,14 @@ Each Go module is independent and uses the shared package through `replace pkg =
 
 | Technology | Purpose |
 |---|---|
-| Kafka | Event bus / async integration support |
+| Kafka | Asynchronous OTP event publishing by the users service |
 | Docker Compose | Local dev infrastructure |
 | PostgreSQL | Service persistence |
 | Goose | SQL migration management |
 
 ## Requirements
 
-- Go 1.26.x (as declared in the module files)
+- Go 1.26.5
 - Docker and Docker Compose
 - PostgreSQL 16+
 - Redis 7+
@@ -73,7 +73,7 @@ Each Go module is independent and uses the shared package through `replace pkg =
 
 ## Local environment
 
-The repository includes a Compose stack for data and local tooling:
+The Compose stack starts Redis, RedisInsight, PostgreSQL, Kafka, Kafka UI, and the auth service.
 
 ```bash
 docker compose up -d
@@ -86,6 +86,8 @@ This starts:
 - PostgreSQL: `localhost:5432` (user `user`, password `123`, DB `flights` by default)
 - Kafka: `localhost:9092`
 - Kafka UI: `http://localhost:8080`
+- Auth HTTP API: `http://localhost:3001`
+- Auth gRPC API: `localhost:50051`
 
 ## Database setup
 
@@ -98,6 +100,7 @@ Create the databases needed by the services:
 
 ```sql
 CREATE DATABASE auth;
+CREATE DATABASE users;
 CREATE DATABASE flights;
 CREATE DATABASE casbin;
 ```
@@ -116,10 +119,11 @@ The config files are in:
 - [flights/config/config.yaml](flights/config/config.yaml)
 - [users/config/config.yaml](users/config/config.yaml)
 - [rbac_config/config.yaml](rbac_config/config.yaml)
+- [configs/auth.yaml](configs/auth.yaml) and [configs/rbac.yaml](configs/rbac.yaml) (Compose-mounted auth/RBAC settings)
 
 ## Running the services
 
-Open separate terminals and run:
+Start the infrastructure first with `docker compose up -d`. Then start services in separate terminals. The auth service can be run in Docker Compose; to run it locally instead:
 
 ```bash
 cd auth
@@ -162,6 +166,17 @@ The flights REST API is defined in [flights/api/openapi.yaml](flights/api/openap
 
 Filters support `flight_number`, `origin`, `destination`, `status`, `date_from`, `date_to`, `page`, and `limit`. Supported statuses are `Scheduled`, `CheckIn`, `Boarding`, `Delayed`, `Departed`, `Arrived`, `Cancelled`, and `Redirected`.
 
+Each flight gets a cargo manifest. Cargo endpoints are implemented in the service but are not yet listed in the Flights OpenAPI document:
+
+| Method | Endpoint | Purpose |
+|---|---|---|
+| `GET` | `/api/v1/cargo/{id}` | Get a flight's cargo manifest |
+| `GET` | `/api/v1/cargo/{id}/items` | List manifest items |
+| `GET` | `/api/v1/cargo/{id}/items/{item_id}` | Get one cargo item |
+| `POST` | `/api/v1/cargo/{id}/add` | Add an item to a manifest |
+| `DELETE` | `/api/v1/cargo/{id}/delete/{item_id}` | Delete an item |
+| `POST` | `/api/v1/cargo/{id}/move` | Move an item to another manifest |
+
 ### Auth and RBAC
 
 The auth and RBAC API is defined in [auth/api/openapi.yaml](auth/api/openapi.yaml).
@@ -177,12 +192,18 @@ The auth and RBAC API is defined in [auth/api/openapi.yaml](auth/api/openapi.yam
 | `PUT` | `/api/v1/rbac/actions` | Create an action |
 | `PUT` | `/api/v1/rbac/resources` | Create a resource |
 | `PUT` | `/api/v1/rbac/permissions` | Create a permission |
+| `GET` | `/api/v1/rbac/roles` | List roles |
+| `GET` | `/api/v1/rbac/actions` | List actions |
+| `GET` | `/api/v1/rbac/resources` | List resources |
+| `GET` | `/api/v1/rbac/permissions` | List permissions |
 | `PUT` | `/api/v1/rbac/roles/{role_name}/permissions` | Grant a permission to a role |
 | `DELETE` | `/api/v1/rbac/roles/{role_name}/permissions` | Revoke a permission from a role |
+| `GET` | `/api/v1/rbac/users/{user_id}/roles` | List a user's roles |
 | `PUT` | `/api/v1/rbac/users/{user_id}/roles` | Assign a role to a user |
 | `DELETE` | `/api/v1/rbac/users/{user_id}/roles/{role_name}` | Remove a role from a user |
 
 The gRPC contract is in [auth/api/proto/auth.proto](auth/api/proto/auth.proto) and is consumed by the users service.
+The service also serves a browser-based RBAC management page at `/admin/rbac`. This page currently has no authentication middleware; use it only in a trusted local environment.
 
 ### Users
 
@@ -191,9 +212,13 @@ The users API is defined in [users/api/openapi.yaml](users/api/openapi.yaml).
 
 | Method | Endpoint | Purpose |
 |---|---|---|
-| `GET` | `/api/v1/users/` | Read the authenticated account |
-| `POST` | `/api/v1/users/registration` | Trigger the auth gRPC registration flow |
-| `POST` | `/api/v1/users/:userId/activate` | Activate a user account |
+| `GET` | `/api/v1/users` | Read the authenticated account (Bearer access token) |
+| `POST` | `/api/v1/users/registration` | Register and create the auth account; returns an access token and refresh-token cookie, publish activation code |
+| `POST` | `/api/v1/users/request-activation` | Generate and publish a new activation code |
+| `POST` | `/api/v1/users/activate` | Activate the authenticated account using the submitted OTP code |
+| `POST` | `/api/v1/users/{userId}/activate` | Admin activation of the specified account |
+
+Activation codes are cached in Redis for 10 minutes. The users service publishes OTP events to the configured Kafka topic (default `users`). The request and self-activation routes require a valid Bearer token. See [users/api/openapi.yaml](users/api/openapi.yaml) for the API contract; it currently needs to be brought in sync with the OTP routes.
 
 ## Configuration and security
 
@@ -203,7 +228,7 @@ Configuration is YAML-based and loaded through the `-config` flag:
 go run ./cmd/auth -config config/config.yaml
 ```
 
-Auth expects `JWT_SECRET` and `JWT_REFRESH_SECRET`. In local development they can be auto-generated, but they should be set explicitly outside local development. The checked-in YAML files use development credentials and should not be used unchanged in shared or production environments.
+Auth expects `JWT_SECRET` and `JWT_REFRESH_SECRET`. The current auth entry point supplies development fallback values when they are unset; set strong secrets explicitly outside local development. Both auth and users use `RBAC_CONFIG_PATH` for the shared RBAC configuration (the entry points default to `../rbac_config/config.yaml`). Checked-in YAML and Compose credentials are for local development only and must not be used unchanged in shared or production environments.
 
 ## Development checks
 

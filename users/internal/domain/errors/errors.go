@@ -4,6 +4,8 @@ import "errors"
 
 var (
 	ErrUserAlreadyActivated = errors.New("user is already activated")
+	ErrUserActivationFailed = errors.New("user activation failed")
+	ErrInvalidOTP           = errors.New("invalid activation code")
 	ErrUserAlreadyExists    = errors.New("user already exists")
 	ErrUserNotFound         = errors.New("user not found")
 	ErrInvalidName          = errors.New("invalid name")

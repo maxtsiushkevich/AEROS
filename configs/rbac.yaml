@@ -1,0 +1,12 @@
+casbin_db_host: postgres
+casbin_db_port: 5432
+
+casbin_db_user: user
+casbin_db_pass: 123
+casbin_db_name: casbin
+
+casbin_config_path: /app/rbac_config/model.conf
+
+redis_addr: redis:6379
+redis_pass: 123        
+redis_channel: casbin_updates

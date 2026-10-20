@@ -20,6 +20,7 @@ type Config struct {
 	Database   DbConfig         `yaml:"database"`
 	HTTPServer HTTPServerConfig `yaml:"http_server"`
 	AuthServer AuthServerConfig `yaml:"auth_server"`
+	Redis      RedisConfig      `yaml:"redis"`
 	Kafka      KafkaConfig      `yaml:"kafka"`
 }
 
@@ -38,6 +39,14 @@ type HTTPServerConfig struct {
 
 type AuthServerConfig struct {
 	Address string `yaml:"address"`
+}
+
+type RedisConfig struct {
+	Address  string `yaml:"address"`
+	Password string `yaml:"db_pass"`
+	Db       int    `yaml:"db"`
+	Protocol int    `yaml:"proto"`
+	Topic    string `yaml:"topic"`
 }
 
 type KafkaConfig struct {

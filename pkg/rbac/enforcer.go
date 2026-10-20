@@ -21,13 +21,18 @@ import (
 type AuthorizationService interface {
 	IsAuthenticated(sub string, obj string, act string) (bool, error)
 	CreateRole(ctx context.Context, name, description string) (*Role, error)
+	ListRoles(ctx context.Context) ([]Role, error)
 	DeleteRole(ctx context.Context, roleName string) error
 	CreateAction(ctx context.Context, name string) (*Action, error)
+	ListActions(ctx context.Context) ([]Action, error)
 	CreateResource(ctx context.Context, name, description string) (*Resource, error)
+	ListResources(ctx context.Context) ([]Resource, error)
 	CreatePermission(ctx context.Context, resourceName, actionName string) (*Permission, error)
+	ListPermissions(ctx context.Context) ([]Permission, error)
 	GrantPermissionToRole(ctx context.Context, roleName, resourceName, actionName string) (*RolePermission, error)
 	RevokePermissionFromRole(ctx context.Context, roleName, resourceName, actionName string) error
 	AssignRoleToUser(ctx context.Context, userID uuid.UUID, roleName string) error
+	ListUserRoles(ctx context.Context, userID uuid.UUID) ([]UserRole, error)
 	RemoveRoleFromUser(ctx context.Context, userID uuid.UUID, roleName string) error
 }
 
@@ -157,8 +162,6 @@ func (s *RBACService) loadPoliciesFromDB() error {
 		loadedGroupings = append(loadedGroupings, fmt.Sprintf("%s->%s", ur.UserID.String(), ur.RoleName))
 	}
 
-	slog.Info("Loaded policies from DB", "count_policies", len(loadedPolicies), "policies", loadedPolicies, "count_groupings", len(loadedGroupings), "groupings", loadedGroupings)
-
 	return nil
 }
 
@@ -214,6 +217,14 @@ func (s *RBACService) CreateRole(ctx context.Context, name, description string) 
 	return role, nil
 }
 
+func (s *RBACService) ListRoles(ctx context.Context) ([]Role, error) {
+	var roles []Role
+	if err := s.db.WithContext(ctx).Order("name ASC").Find(&roles).Error; err != nil {
+		return nil, fmt.Errorf("failed to fetch roles: %w", err)
+	}
+	return roles, nil
+}
+
 func (s *RBACService) DeleteRole(ctx context.Context, roleName string) error {
 	var role Role
 	if err := s.db.WithContext(ctx).First(&role, "name = ?", roleName).Error; err != nil {
@@ -261,6 +272,14 @@ func (s *RBACService) CreateAction(ctx context.Context, name string) (*Action, e
 	return action, nil
 }
 
+func (s *RBACService) ListActions(ctx context.Context) ([]Action, error) {
+	var actions []Action
+	if err := s.db.WithContext(ctx).Order("name ASC").Find(&actions).Error; err != nil {
+		return nil, fmt.Errorf("failed to fetch actions: %w", err)
+	}
+	return actions, nil
+}
+
 func (s *RBACService) CreateResource(ctx context.Context, name, description string) (*Resource, error) {
 	var existingResource Resource
 	if err := s.db.WithContext(ctx).Where("name = ?", name).First(&existingResource).Error; err == nil {
@@ -277,6 +296,14 @@ func (s *RBACService) CreateResource(ctx context.Context, name, description stri
 	}
 
 	return resource, nil
+}
+
+func (s *RBACService) ListResources(ctx context.Context) ([]Resource, error) {
+	var resources []Resource
+	if err := s.db.WithContext(ctx).Order("name ASC").Find(&resources).Error; err != nil {
+		return nil, fmt.Errorf("failed to fetch resources: %w", err)
+	}
+	return resources, nil
 }
 
 func (s *RBACService) CreatePermission(ctx context.Context, resourceName, actionName string) (*Permission, error) {
@@ -309,6 +336,18 @@ func (s *RBACService) CreatePermission(ctx context.Context, resourceName, action
 	}
 
 	return perm, nil
+}
+
+func (s *RBACService) ListPermissions(ctx context.Context) ([]Permission, error) {
+	var permissions []Permission
+	if err := s.db.WithContext(ctx).
+		Preload("Resource").
+		Preload("Action").
+		Order("resource_name ASC, action_name ASC").
+		Find(&permissions).Error; err != nil {
+		return nil, fmt.Errorf("failed to fetch permissions: %w", err)
+	}
+	return permissions, nil
 }
 
 func (s *RBACService) GrantPermissionToRole(ctx context.Context, roleName, resourceName, actionName string) (*RolePermission, error) {
@@ -404,6 +443,18 @@ func (s *RBACService) AssignRoleToUser(ctx context.Context, userID uuid.UUID, ro
 	}
 
 	return nil
+}
+
+func (s *RBACService) ListUserRoles(ctx context.Context, userID uuid.UUID) ([]UserRole, error) {
+	var userRoles []UserRole
+	if err := s.db.WithContext(ctx).
+		Where("user_id = ?", userID).
+		Preload("Role").
+		Order("role_name ASC").
+		Find(&userRoles).Error; err != nil {
+		return nil, fmt.Errorf("failed to fetch user roles: %w", err)
+	}
+	return userRoles, nil
 }
 
 func (s *RBACService) RemoveRoleFromUser(ctx context.Context, userID uuid.UUID, roleName string) error {

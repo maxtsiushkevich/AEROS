@@ -14,6 +14,13 @@ http_server:
 auth_server:
     address: localhost:50051
 
+redis:
+    address: localhost:6379
+    db_pass: 123
+    db: 0
+    proto: 2
+    topic: otp
+
 kafka:
     brokers:
         - localhost:9092

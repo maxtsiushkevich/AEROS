@@ -71,11 +71,9 @@ paths:
       tags: [Authentication]
       summary: Revoke the refresh token
       operationId: logout
-      security:
-        - refreshCookie: []
       responses:
         '200':
-          description: Logout completed. Missing refresh cookies are treated as a successful logout.
+          description: Logout completed. The refresh cookie is optional; when supplied, it is revoked and expired.
           headers:
             Set-Cookie:
               description: Expired refresh_token cookie.
@@ -111,6 +109,19 @@ paths:
         '500':
           $ref: '#/components/responses/InternalServerError'
 
+  /admin/rbac:
+    get:
+      tags: [RBAC]
+      summary: Serve the RBAC administration page
+      operationId: getRbacAdminPage
+      responses:
+        '200':
+          description: HTML administration page.
+          content:
+            text/html:
+              schema:
+                type: string
+
   /api/v1/rbac/roles:
     put:
       tags: [RBAC]
@@ -131,6 +142,21 @@ paths:
                 $ref: '#/components/schemas/Role'
         '400':
           $ref: '#/components/responses/BadRequest'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+    get:
+      tags: [RBAC]
+      summary: List roles
+      operationId: listRoles
+      responses:
+        '200':
+          description: Roles returned successfully.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/RoleRecord'
         '500':
           $ref: '#/components/responses/InternalServerError'
 
@@ -173,6 +199,21 @@ paths:
           $ref: '#/components/responses/BadRequest'
         '500':
           $ref: '#/components/responses/InternalServerError'
+    get:
+      tags: [RBAC]
+      summary: List actions
+      operationId: listActions
+      responses:
+        '200':
+          description: Actions returned successfully.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ActionRecord'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
 
   /api/v1/rbac/resources:
     put:
@@ -194,6 +235,21 @@ paths:
                 $ref: '#/components/schemas/Resource'
         '400':
           $ref: '#/components/responses/BadRequest'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+    get:
+      tags: [RBAC]
+      summary: List resources
+      operationId: listResources
+      responses:
+        '200':
+          description: Resources returned successfully.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ResourceRecord'
         '500':
           $ref: '#/components/responses/InternalServerError'
 
@@ -219,6 +275,21 @@ paths:
           $ref: '#/components/responses/BadRequest'
         '404':
           $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+    get:
+      tags: [RBAC]
+      summary: List permissions
+      operationId: listPermissions
+      responses:
+        '200':
+          description: Permissions returned successfully.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PermissionRecord'
         '500':
           $ref: '#/components/responses/InternalServerError'
 
@@ -294,6 +365,25 @@ paths:
           $ref: '#/components/responses/NotFound'
         '500':
           $ref: '#/components/responses/InternalServerError'
+    get:
+      tags: [RBAC]
+      summary: List roles assigned to a user
+      operationId: listUserRoles
+      parameters:
+        - $ref: '#/components/parameters/UserIDPath'
+      responses:
+        '200':
+          description: User roles returned successfully.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/UserRoleRecord'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
 
   /api/v1/rbac/users/{user_id}/roles/{role_name}:
     delete:
@@ -337,7 +427,6 @@ components:
         type: string
         minLength: 2
         maxLength: 30
-        pattern: '^[A-Za-z]+$'
     RoleNamePath:
       name: role_name
       in: path
@@ -346,7 +435,6 @@ components:
         type: string
         minLength: 2
         maxLength: 30
-        pattern: '^[A-Za-z]+$'
     UserIDPath:
       name: user_id
       in: path
@@ -432,7 +520,6 @@ components:
           type: string
           minLength: 2
           maxLength: 30
-          pattern: '^[A-Za-z]+$'
         description:
           type: string
           maxLength: 100
@@ -444,7 +531,6 @@ components:
           type: string
           minLength: 2
           maxLength: 30
-          pattern: '^[A-Za-z]+$'
     CreateResourceRequest:
       type: object
       required: [name]
@@ -465,7 +551,6 @@ components:
           type: string
           minLength: 2
           maxLength: 30
-          pattern: '^[A-Za-z]+$'
     AssignRoleRequest:
       type: object
       required: [role_name]
@@ -474,7 +559,6 @@ components:
           type: string
           minLength: 2
           maxLength: 30
-          pattern: '^[A-Za-z]+$'
     Role:
       type: object
       properties:
@@ -546,5 +630,92 @@ components:
           type: string
           format: date-time
         updated_at:
+          type: string
+          format: date-time
+    UserRole:
+      type: object
+      properties:
+        user_id:
+          type: string
+          format: uuid
+        role_name:
+          type: string
+        role:
+          $ref: '#/components/schemas/Role'
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+    RoleRecord:
+      type: object
+      description: Role returned by list endpoints; model fields are serialized with Go's exported field names.
+      properties:
+        Name:
+          type: string
+        Description:
+          type: string
+        CreatedAt:
+          type: string
+          format: date-time
+        UpdatedAt:
+          type: string
+          format: date-time
+    ActionRecord:
+      type: object
+      properties:
+        Name:
+          type: string
+        CreatedAt:
+          type: string
+          format: date-time
+        UpdatedAt:
+          type: string
+          format: date-time
+    ResourceRecord:
+      type: object
+      properties:
+        Name:
+          type: string
+        Description:
+          type: string
+        CreatedAt:
+          type: string
+          format: date-time
+        UpdatedAt:
+          type: string
+          format: date-time
+    PermissionRecord:
+      type: object
+      properties:
+        ResourceName:
+          type: string
+        ActionName:
+          type: string
+        Resource:
+          $ref: '#/components/schemas/ResourceRecord'
+        Action:
+          $ref: '#/components/schemas/ActionRecord'
+        CreatedAt:
+          type: string
+          format: date-time
+        UpdatedAt:
+          type: string
+          format: date-time
+    UserRoleRecord:
+      type: object
+      properties:
+        UserID:
+          type: string
+          format: uuid
+        RoleName:
+          type: string
+        Role:
+          $ref: '#/components/schemas/RoleRecord'
+        CreatedAt:
+          type: string
+          format: date-time
+        UpdatedAt:
           type: string
           format: date-time

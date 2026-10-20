@@ -14,6 +14,7 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 
 	"users/internal/config"
+	"users/internal/domain/cache"
 	"users/internal/domain/producer"
 	"users/internal/domain/repository"
 	"users/internal/infrastructure/kafka"
@@ -34,15 +35,17 @@ type Server struct {
 	userHandler  *handler.UserHandler
 	storage      repository.UserStorage
 	appProducers applicationProducers
+	otpCache     cache.Cache
 }
 
-func NewServer(cfg *config.Config, logger *slog.Logger, rbacService rbac.AuthorizationService, db repository.UserStorage) *Server {
+func NewServer(cfg *config.Config, logger *slog.Logger, rbacService rbac.AuthorizationService, db repository.UserStorage, otpCache cache.Cache) *Server {
 	return &Server{
 		config:       cfg,
 		logger:       logger,
 		rbacService:  rbacService,
 		storage:      db,
 		appProducers: applicationProducers{},
+		otpCache:     otpCache,
 	}
 }
 func (s *Server) Start() error {
@@ -59,7 +62,7 @@ func (s *Server) Start() error {
 
 	s.appProducers.producer = kafka.NewKafkaProducer(s.config.Kafka.Brokers, s.config.Kafka.Topic)
 
-	service := service.NewUsersService(s.grpcConn, s.storage, s.appProducers.producer)
+	service := service.NewUsersService(s.logger, s.grpcConn, s.storage, s.appProducers.producer, s.otpCache)
 
 	s.userHandler = handler.NewUserHandler(service)
 
@@ -111,6 +114,8 @@ func (s *Server) configRoutes(router *gin.Engine) {
 	protected := g.Group("")
 	protected.Use(middleware.GinAuthMiddleware(s.rbacService))
 
-	protected.GET("/", s.userHandler.Profile)
-	protected.POST("/:userId/activate", s.userHandler.Activate)
+	protected.GET("", s.userHandler.Profile)
+	protected.POST("/activate", s.userHandler.ActivateUserByCode)       // endpoint for self-activation with code
+	protected.POST("/:userId/activate", s.userHandler.AdminUserByAdmin) // endpoint for admin activation
+	protected.POST("/request-activation", s.userHandler.RequestActivationCode)
 }

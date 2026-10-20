@@ -3,28 +3,35 @@ package service
 import (
 	"context"
 	"errors"
+	"log/slog"
 	"time"
 	auth "users/api/proto"
+	"users/internal/domain/cache"
 	domainerr "users/internal/domain/errors"
 	"users/internal/domain/models"
 	"users/internal/domain/producer"
 	"users/internal/domain/repository"
+	"users/internal/infrastructure/utils"
 
 	"github.com/google/uuid"
 	"google.golang.org/grpc"
 )
 
 type UserService struct {
+	logger    *slog.Logger
 	grpcConn  *grpc.ClientConn
 	storage   repository.UserStorage
 	publisher producer.Publisher
+	otpCache  cache.Cache
 }
 
-func NewUsersService(grpcConn *grpc.ClientConn, storage repository.UserStorage, publisher producer.Publisher) *UserService {
+func NewUsersService(logger *slog.Logger, grpcConn *grpc.ClientConn, storage repository.UserStorage, publisher producer.Publisher, otpCache cache.Cache) *UserService {
 	return &UserService{
+		logger:    logger,
 		grpcConn:  grpcConn,
 		storage:   storage,
 		publisher: publisher,
+		otpCache:  otpCache,
 	}
 }
 
@@ -34,7 +41,6 @@ func (s *UserService) RegisterUser(ctx context.Context, name string, email strin
 		return nil, nil, err
 	}
 	if existingUser != nil {
-
 		return nil, nil, domainerr.ErrUserAlreadyExists
 	}
 
@@ -50,23 +56,36 @@ func (s *UserService) RegisterUser(ctx context.Context, name string, email strin
 		return nil, nil, err
 	}
 
-	resp, err := client.AddUser(context.Background(), &auth.AddUserRequest{
+	resp, err := client.AddUser(ctx, &auth.AddUserRequest{
 		Id:       u.Id.String(),
 		Password: password,
 		Email:    email,
 	})
-
 	if err != nil {
 		s.storage.Delete(ctx, u.Id)
 		return nil, nil, err
 	}
 
-	// s.publisher.Publish(ctx, "1234")
+	code, err := utils.GenerateOTP(6)
+	if err != nil {
+		s.logger.Error("Failed to generate OTP", "err", err)
+		return &resp.AccessToken, &resp.RefreshToken, nil
+	}
+
+	err = s.otpCache.Set(ctx, email, []byte(code), 10*time.Minute)
+	if err != nil {
+		s.logger.Error("Failed to store OTP in cache", "err", err)
+		return &resp.AccessToken, &resp.RefreshToken, nil
+	}
+
+	if s.publisher != nil {
+		go s.publisher.Publish(ctx, producer.GetOTPEventMessage(email, code, producer.ActivateProfile))
+	}
 
 	return &resp.AccessToken, &resp.RefreshToken, nil
 }
 
-func (s *UserService) ActivateUser(ctx context.Context, id uuid.UUID) error {
+func (s *UserService) AdminActivateUser(ctx context.Context, id uuid.UUID) error {
 	u, err := s.storage.Read(ctx, id)
 	if err != nil {
 		return err
@@ -79,8 +98,55 @@ func (s *UserService) ActivateUser(ctx context.Context, id uuid.UUID) error {
 	return s.storage.Update(ctx, u)
 }
 
+func (s *UserService) ActivateUserByCode(ctx context.Context, id uuid.UUID, code string) error {
+	u, err := s.storage.Read(ctx, id)
+	if err != nil {
+		return err
+	}
+
+	cachedCode, err := s.otpCache.Get(ctx, u.Email)
+	if err != nil {
+		return domainerr.ErrUserActivationFailed
+	}
+
+	if string(cachedCode) != code {
+		return domainerr.ErrInvalidOTP
+	}
+
+	if err := u.Activate(); err != nil {
+		return err
+	}
+
+	err = s.otpCache.Delete(ctx, u.Email)
+	if err != nil {
+		return domainerr.ErrUserActivationFailed
+	}
+
+	return s.storage.Update(ctx, u)
+}
+
 func (s *UserService) Profile(ctx context.Context, id uuid.UUID) (*models.User, error) {
 	return s.storage.Read(ctx, id)
+}
+
+func (s *UserService) RequestActivationCode(ctx context.Context, id uuid.UUID, email string) error {
+	code, err := utils.GenerateOTP(6)
+	if err != nil {
+		s.logger.Error("Failed to generate OTP", "err", err)
+		return err
+	}
+
+	err = s.otpCache.Set(ctx, email, []byte(code), 10*time.Minute)
+	if err != nil {
+		s.logger.Error("Failed to store OTP in cache", "err", err)
+		return err
+	}
+
+	if s.publisher != nil {
+		go s.publisher.Publish(ctx, producer.GetOTPEventMessage(email, code, producer.ActivateProfile))
+	}
+
+	return nil
 }
 
 func (s *UserService) ChangeEmail(ctx context.Context, id uuid.UUID, newEmail string) error {
