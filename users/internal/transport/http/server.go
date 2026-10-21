@@ -18,7 +18,7 @@ import (
 	"users/internal/domain/producer"
 	"users/internal/domain/repository"
 	"users/internal/infrastructure/kafka"
-	"users/internal/infrastructure/service"
+	"users/internal/infrastructure/usecases"
 	"users/internal/transport/handler"
 )
 
@@ -62,7 +62,7 @@ func (s *Server) Start() error {
 
 	s.appProducers.producer = kafka.NewKafkaProducer(s.config.Kafka.Brokers, s.config.Kafka.Topic)
 
-	service := service.NewUsersService(s.logger, s.grpcConn, s.storage, s.appProducers.producer, s.otpCache)
+	service := usecases.NewUserUsecases(s.logger, s.grpcConn, s.storage, s.appProducers.producer, s.otpCache)
 
 	s.userHandler = handler.NewUserHandler(service)
 
@@ -118,4 +118,6 @@ func (s *Server) configRoutes(router *gin.Engine) {
 	protected.POST("/activate", s.userHandler.ActivateUserByCode)          // endpoint for self-activation with code
 	protected.POST("/:userId/activate", s.userHandler.ActivateUserByAdmin) // endpoint for admin activation
 	protected.POST("/request-code", s.userHandler.RequestCode)
+	protected.POST("/change-email/request", s.userHandler.ChangeEmailRequest)
+	protected.POST("/change-email/confirm", s.userHandler.ChangeEmailConfirm)
 }

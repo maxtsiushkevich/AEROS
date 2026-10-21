@@ -2,10 +2,13 @@ package grpc
 
 import (
 	grpc "auth/api/proto"
+	"auth/internal/models"
 	"auth/pkg/errors"
 	"context"
 	"pkg/auth"
 
+	"github.com/go-playground/validator/v10"
+	"github.com/google/uuid"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -59,4 +62,52 @@ func (s *Auth) AddUser(ctx context.Context, req *grpc.AddUserRequest) (*grpc.Add
 		AccessToken:  access,
 		RefreshToken: refresh,
 	}, nil
+}
+
+func (s *Auth) ChangeEmail(ctx context.Context, req *grpc.ChangeEmailRequest) (*grpc.ChangeEmailResponse, error) {
+	if req == nil {
+		return nil, status.Error(codes.InvalidArgument, "request is required")
+	}
+
+	id, err := uuid.Parse(req.Id)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid user id")
+	}
+
+	if err := validator.New().Var(req.NewEmail, "required,email"); err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid email")
+	}
+
+	user, err := s.storage.ReadByID(ctx, id)
+	if err != nil {
+		if authErr, ok := err.(*errors.AuthError); ok && authErr.Code == "USER_NOT_FOUND" {
+			return nil, status.Error(codes.NotFound, authErr.Error())
+		}
+		s.logger.Error("Failed to read user for email change", "id", id, "err", err)
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+
+	if user.Email == req.NewEmail {
+		return &grpc.ChangeEmailResponse{IsChanged: false}, nil
+	}
+
+	_, err = s.storage.Update(ctx, &models.UserAuthUpdate{
+		ID:       id,
+		NewEmail: req.NewEmail,
+	})
+	if err != nil {
+		if authErr, ok := err.(*errors.AuthError); ok {
+			switch authErr.Code {
+			case "USER_NOT_FOUND":
+				return nil, status.Error(codes.NotFound, authErr.Error())
+			case "EMAIL_ALREADY_EXISTS":
+				return nil, status.Error(codes.AlreadyExists, authErr.Error())
+			}
+		}
+		s.logger.Error("Failed to change user email", "id", id, "err", err)
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+
+	s.logger.Info("User email changed successfully", "id", id)
+	return &grpc.ChangeEmailResponse{IsChanged: true}, nil
 }

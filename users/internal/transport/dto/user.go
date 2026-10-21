@@ -13,8 +13,12 @@ type RegisterUserRequest struct {
 	Password string    `json:"password" validate:"required,min=8"`
 }
 
-type ActivateUserByCodeRequest struct {
-	Code string `json:"code"`
+type CodeRequest struct {
+	Code string `json:"code" binding:"required"`
+}
+
+type ChangeEmail struct {
+	NewEmail string `json:"new_email" binding:"required,email,lowercase,max=255"`
 }
 
 type UserResponse struct {

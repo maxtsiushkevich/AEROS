@@ -7,7 +7,7 @@ import (
 )
 
 type Cache interface {
-	Get(ctx context.Context, email string, purpose otp.OTPPurpose) ([]byte, error)
-	Set(ctx context.Context, email string, purpose otp.OTPPurpose, code []byte, ttl time.Duration) error
-	Delete(ctx context.Context, email string, purpose otp.OTPPurpose) error
+	Get(ctx context.Context, key string, purpose otp.OTPPurpose) ([]byte, error)
+	Set(ctx context.Context, key string, purpose otp.OTPPurpose, payload []byte, ttl time.Duration) error
+	Delete(ctx context.Context, key string, purpose otp.OTPPurpose) error
 }

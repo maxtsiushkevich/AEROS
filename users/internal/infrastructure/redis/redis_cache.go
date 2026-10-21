@@ -47,8 +47,8 @@ func (c *RedisOTPCache) Shutdown() error {
 	return nil
 }
 
-func (c *RedisOTPCache) Get(ctx context.Context, email string, purpose otp.OTPPurpose) ([]byte, error) {
-	value, err := c.client.Get(ctx, c.topic+":"+email+":"+string(purpose)).Bytes()
+func (c *RedisOTPCache) Get(ctx context.Context, key string, purpose otp.OTPPurpose) ([]byte, error) {
+	value, err := c.client.Get(ctx, c.topic+":"+key+":"+string(purpose)).Bytes()
 	if err != nil {
 		return nil, err
 	}
@@ -56,10 +56,10 @@ func (c *RedisOTPCache) Get(ctx context.Context, email string, purpose otp.OTPPu
 	return value, nil
 }
 
-func (c *RedisOTPCache) Set(ctx context.Context, email string, purpose otp.OTPPurpose, code []byte, ttl time.Duration) error {
-	return c.client.Set(ctx, c.topic+":"+email+":"+string(purpose), code, ttl).Err()
+func (c *RedisOTPCache) Set(ctx context.Context, key string, purpose otp.OTPPurpose, payload []byte, ttl time.Duration) error {
+	return c.client.Set(ctx, c.topic+":"+key+":"+string(purpose), payload, ttl).Err()
 }
 
-func (c *RedisOTPCache) Delete(ctx context.Context, email string, purpose otp.OTPPurpose) error {
-	return c.client.Del(ctx, c.topic+":"+email+":"+string(purpose)).Err()
+func (c *RedisOTPCache) Delete(ctx context.Context, key string, purpose otp.OTPPurpose) error {
+	return c.client.Del(ctx, c.topic+":"+key+":"+string(purpose)).Err()
 }

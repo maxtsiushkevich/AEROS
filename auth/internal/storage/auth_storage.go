@@ -148,6 +148,10 @@ func (s *AuthPostgresStorage) Update(ctx context.Context, update *models.UserAut
 
 	if err := s.db.WithContext(ctx).Save(&existing).Error; err != nil {
 		s.logger.Error("Failed to update user", "id", update.ID, "err", err)
+		errMsg := err.Error()
+		if update.NewEmail != "" && (strings.Contains(errMsg, "duplicate key") || strings.Contains(errMsg, "UNIQUE constraint")) {
+			return nil, errors.NewAuthError("EMAIL_ALREADY_EXISTS", "email already exists")
+		}
 		return nil, errors.NewAuthError("SAVE_FAILED", "failed to save updated user")
 	}
 

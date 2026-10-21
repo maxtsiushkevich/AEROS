@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"pkg/helpers"
 	domainerr "users/internal/domain/errors"
-	"users/internal/domain/service"
+	"users/internal/domain/usecase"
 	"users/internal/transport/dto"
 
 	"github.com/gin-gonic/gin"
@@ -13,12 +13,12 @@ import (
 )
 
 type UserHandler struct {
-	service service.UserService
+	useCases usecase.UserUseCases
 }
 
-func NewUserHandler(service service.UserService) *UserHandler {
+func NewUserHandler(service usecase.UserUseCases) *UserHandler {
 	return &UserHandler{
-		service: service,
+		useCases: service,
 	}
 }
 
@@ -33,7 +33,7 @@ func (h *UserHandler) Registration(c *gin.Context) {
 		return
 	}
 
-	access, refresh, err := h.service.RegisterUser(ctx, req.Name, req.Email, req.Birthday, req.Password)
+	access, refresh, err := h.useCases.RegisterUser(ctx, req.Name, req.Email, req.Birthday, req.Password)
 	if err != nil {
 		switch {
 		case errors.Is(err, domainerr.ErrInvalidName),
@@ -77,7 +77,7 @@ func (h *UserHandler) Profile(c *gin.Context) {
 		return
 	}
 
-	u, err := h.service.Profile(ctx, claims.Id)
+	u, err := h.useCases.Profile(ctx, claims.Id)
 
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
@@ -100,7 +100,7 @@ func (h *UserHandler) ActivateUserByCode(c *gin.Context) {
 		return
 	}
 
-	var req dto.ActivateUserByCodeRequest
+	var req dto.CodeRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"error": err.Error(),
@@ -108,7 +108,7 @@ func (h *UserHandler) ActivateUserByCode(c *gin.Context) {
 		return
 	}
 
-	err := h.service.ActivateUserByCode(ctx, claims.Id, req.Code)
+	err := h.useCases.ActivateUserByCode(ctx, claims.Id, req.Code)
 
 	if err != nil {
 		switch {
@@ -154,7 +154,7 @@ func (h *UserHandler) RequestCode(c *gin.Context) {
 		return
 	}
 
-	err := h.service.RequestCode(ctx, claims.Id, claims.Email, req.Purpose)
+	err := h.useCases.RequestCode(ctx, claims.Id, claims.Email, req.Purpose)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"error": "failed to send code",
@@ -176,7 +176,7 @@ func (h *UserHandler) ActivateUserByAdmin(c *gin.Context) {
 		return
 	}
 
-	err = h.service.ActivateUserByAdmin(ctx, parsed)
+	err = h.useCases.ActivateUserByAdmin(ctx, parsed)
 	if err != nil {
 		if errors.Is(err, domainerr.ErrUserAlreadyActivated) {
 			c.JSON(http.StatusConflict, gin.H{
@@ -197,4 +197,71 @@ func (h *UserHandler) ActivateUserByAdmin(c *gin.Context) {
 		})
 		return
 	}
+}
+
+func (h *UserHandler) ChangeEmailRequest(c *gin.Context) {
+	ctx := c.Request.Context()
+
+	claims, ok := helpers.ClaimsFromContextGin(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"error": "claims not found",
+		})
+		return
+	}
+
+	var req dto.ChangeEmail
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": err.Error(),
+		})
+		return
+	}
+
+	err := h.useCases.RequestChangeEmail(ctx, claims.Id, req.NewEmail)
+	if err != nil {
+		if errors.Is(err, domainerr.ErrUserAlreadyExists) {
+			c.JSON(http.StatusConflict, gin.H{"error": err.Error()})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": "failed to request change email",
+		})
+		return
+	}
+
+	c.JSON(http.StatusAccepted, gin.H{"status": "code sent"})
+}
+
+func (h *UserHandler) ChangeEmailConfirm(c *gin.Context) {
+	ctx := c.Request.Context()
+
+	claims, ok := helpers.ClaimsFromContextGin(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"error": "claims not found",
+		})
+		return
+	}
+
+	var req dto.CodeRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	err := h.useCases.ConfirmChangeEmail(ctx, claims.Id, req.Code)
+	if err != nil {
+		switch {
+		case errors.Is(err, domainerr.ErrInvalidOTP), errors.Is(err, domainerr.ErrUserActivationFailed):
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid or expired confirmation code"})
+		case errors.Is(err, domainerr.ErrUserAlreadyExists):
+			c.JSON(http.StatusConflict, gin.H{"error": err.Error()})
+		default:
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to confirm change email"})
+		}
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"status": "email changed"})
 }
