@@ -217,6 +217,10 @@ The users API is defined in [users/api/openapi.yaml](users/api/openapi.yaml).
 | `POST` | `/api/v1/users/request-code` | Request an OTP by specifying its purpose (`ActivateProfile` or `ChangeEmail`) |
 | `POST` | `/api/v1/users/activate` | Activate the authenticated account using the submitted OTP code |
 | `POST` | `/api/v1/users/{userId}/activate` | Admin activation of the specified account |
+| `POST` | `/api/v1/users/change-email/request` | Request an email change; sends a confirmation code to the new address |
+| `POST` | `/api/v1/users/change-email/confirm` | Confirm the pending email change with its OTP |
+
+Registration returns an access token and sets the refresh token as an HttpOnly cookie. Admin activation requires the corresponding RBAC permission.
 
 OTP codes are cached in Redis for 10 minutes. The users service publishes OTP events to the configured Kafka topic (default `users`). All routes except registration require a valid Bearer access token and are subject to RBAC authorization. See [users/api/openapi.yaml](users/api/openapi.yaml) for request and response details.
 

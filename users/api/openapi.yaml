@@ -2,7 +2,7 @@ openapi: 3.0.3
 info:
   title: Users API
   version: 1.0.0
-  description: HTTP API for user registration, profile lookup, OTP requests, and account activation.
+  description: HTTP API for user registration, profile lookup, OTP requests, account activation, and email changes.
 servers:
   - url: http://localhost:3002
     description: Local development server
@@ -225,6 +225,109 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
+  /api/v1/users/change-email/request:
+    post:
+      tags: [Users]
+      summary: Request an email change
+      description: Sends a confirmation code to the requested new email address.
+      operationId: requestEmailChange
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChangeEmailRequest'
+      responses:
+        '202':
+          description: Email change request accepted and confirmation code sent.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StatusResponse'
+        '400':
+          description: Request body is invalid.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Missing or invalid bearer token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Authenticated user is not authorized by RBAC to use this operation.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: The requested email address is already in use.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Failed to request the email change.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/users/change-email/confirm:
+    post:
+      tags: [Users]
+      summary: Confirm an email change
+      operationId: confirmEmailChange
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ActivateUserByCodeRequest'
+      responses:
+        '200':
+          description: Email change confirmed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StatusResponse'
+        '400':
+          description: Confirmation code is invalid or expired.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Missing or invalid bearer token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Authenticated user is not authorized by RBAC to use this operation.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: The requested email address is already in use.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Failed to confirm the email change.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
 components:
   securitySchemes:
     bearerAuth:
@@ -284,7 +387,7 @@ components:
       properties:
         code:
           type: string
-          description: One-time activation code delivered through the configured event flow.
+          description: One-time code delivered through the configured event flow.
 
     OTPRequest:
       type: object
@@ -295,13 +398,23 @@ components:
           enum: [ActivateProfile, ChangeEmail]
           description: Purpose for which the one-time code is requested.
 
+    ChangeEmailRequest:
+      type: object
+      required: [new_email]
+      properties:
+        new_email:
+          type: string
+          format: email
+          maxLength: 255
+          description: New email address to associate with the authenticated account.
+
     StatusResponse:
       type: object
       required: [status]
       properties:
         status:
           type: string
-          enum: [activated, activation code sent]
+          enum: [activated, code sent, email changed]
 
     UserResponse:
       type: object
