@@ -157,11 +157,11 @@ func (h *UserHandler) RequestCode(c *gin.Context) {
 	err := h.service.RequestCode(ctx, claims.Id, claims.Email, req.Purpose)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": "failed to send activation code",
+			"error": "failed to send code",
 		})
 	}
 
-	c.JSON(http.StatusAccepted, gin.H{"status": "activation code sent"})
+	c.JSON(http.StatusAccepted, gin.H{"status": "code sent"})
 }
 
 func (h *UserHandler) ActivateUserByAdmin(c *gin.Context) {

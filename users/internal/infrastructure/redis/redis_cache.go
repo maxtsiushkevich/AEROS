@@ -60,6 +60,6 @@ func (c *RedisOTPCache) Set(ctx context.Context, email string, purpose otp.OTPPu
 	return c.client.Set(ctx, c.topic+":"+email+":"+string(purpose), code, ttl).Err()
 }
 
-func (c *RedisOTPCache) Delete(ctx context.Context, email string) error {
-	return c.client.Del(ctx, c.topic+":"+email).Err()
+func (c *RedisOTPCache) Delete(ctx context.Context, email string, purpose otp.OTPPurpose) error {
+	return c.client.Del(ctx, c.topic+":"+email+":"+string(purpose)).Err()
 }
