@@ -1,4 +1,4 @@
-package producer
+package broker
 
 import "users/internal/domain/otp"
 

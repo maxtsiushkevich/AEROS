@@ -4,19 +4,21 @@ import (
 	"context"
 	"encoding/json"
 	"log"
+	"log/slog"
 	"time"
-	"users/internal/domain/producer"
+	"users/internal/domain/broker"
 
 	"github.com/google/uuid"
 	"github.com/segmentio/kafka-go"
 	"github.com/segmentio/kafka-go/snappy"
 )
 
-type KafkaProducer struct {
+type KafkaPublisher struct {
 	writer *kafka.Writer
+	logger *slog.Logger
 }
 
-func (p *KafkaProducer) Publish(ctx context.Context, payload any) error {
+func (p *KafkaPublisher) Publish(ctx context.Context, payload any) error {
 	message, err := p.encodeMessage(payload)
 	if err != nil {
 		return err
@@ -25,7 +27,7 @@ func (p *KafkaProducer) Publish(ctx context.Context, payload any) error {
 	return p.writer.WriteMessages(ctx, message)
 }
 
-func NewKafkaProducer(brokers []string, topic string) producer.Publisher {
+func NewKafkaProducer(brokers []string, topic string, l *slog.Logger) broker.Publisher {
 	dialer := &kafka.Dialer{
 		Timeout:  10 * time.Second,
 		ClientID: "registration-service-client",
@@ -41,10 +43,23 @@ func NewKafkaProducer(brokers []string, topic string) producer.Publisher {
 		CompressionCodec: snappy.NewCompressionCodec(),
 	}
 
-	return &KafkaProducer{kafka.NewWriter(c)}
+	return &KafkaPublisher{
+		writer: kafka.NewWriter(c),
+		logger: l,
+	}
 }
 
-func (p *KafkaProducer) encodeMessage(payload any) (kafka.Message, error) {
+func (p *KafkaPublisher) Close() error {
+	err := p.writer.Close()
+	if err != nil {
+		p.logger.Error("Failed to close Kafka connection", "err", err)
+		return err
+	}
+	p.logger.Info("Kafka connection closed")
+	return nil
+}
+
+func (p *KafkaPublisher) encodeMessage(payload any) (kafka.Message, error) {
 	m, err := json.Marshal(payload)
 	if err != nil {
 		return kafka.Message{}, err

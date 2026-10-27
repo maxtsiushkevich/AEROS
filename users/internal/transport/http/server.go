@@ -5,6 +5,7 @@ import (
 	"log"
 	"log/slog"
 	"net/http"
+	"time"
 
 	"pkg/middleware"
 	"pkg/rbac"
@@ -14,16 +15,18 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 
 	"users/internal/config"
+	"users/internal/domain/broker"
 	"users/internal/domain/cache"
-	"users/internal/domain/producer"
+	"users/internal/domain/outbox"
 	"users/internal/domain/repository"
 	"users/internal/infrastructure/kafka"
+	pgoutbox "users/internal/infrastructure/pg_outbox"
 	"users/internal/infrastructure/usecases"
 	"users/internal/transport/handler"
 )
 
 type applicationProducers struct {
-	producer producer.Publisher
+	producer broker.Publisher
 }
 
 type Server struct {
@@ -36,6 +39,7 @@ type Server struct {
 	storage      repository.UserStorage
 	appProducers applicationProducers
 	otpCache     cache.Cache
+	outbox       outbox.Outbox
 }
 
 func NewServer(cfg *config.Config, logger *slog.Logger, rbacService rbac.AuthorizationService, db repository.UserStorage, otpCache cache.Cache) *Server {
@@ -60,7 +64,9 @@ func (s *Server) Start() error {
 
 	s.grpcConn = conn
 
-	s.appProducers.producer = kafka.NewKafkaProducer(s.config.Kafka.Brokers, s.config.Kafka.Topic)
+	s.appProducers.producer = kafka.NewKafkaProducer(s.config.Kafka.Brokers, s.config.Kafka.Topic, s.logger)
+
+	s.outbox = pgoutbox.NewPostgresOutbox(s.logger, s.appProducers.producer, s.storage, 1, 1*time.Second, 5)
 
 	service := usecases.NewUserUsecases(s.logger, s.grpcConn, s.storage, s.appProducers.producer, s.otpCache)
 
@@ -84,6 +90,8 @@ func (s *Server) Start() error {
 		}
 	}()
 
+	go s.outbox.Run(context.Background())
+
 	return nil
 }
 
@@ -95,6 +103,12 @@ func (s *Server) Shutdown(ctx context.Context) error {
 	}
 
 	err = s.grpcConn.Close()
+	if err != nil {
+		s.logger.Error(err.Error())
+		return err
+	}
+
+	err = s.appProducers.producer.Close()
 	if err != nil {
 		s.logger.Error(err.Error())
 		return err

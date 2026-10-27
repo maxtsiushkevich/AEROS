@@ -8,11 +8,11 @@ import (
 	"log/slog"
 	"time"
 	auth "users/api/proto"
+	"users/internal/domain/broker"
 	"users/internal/domain/cache"
 	domainerr "users/internal/domain/errors"
 	"users/internal/domain/models"
 	"users/internal/domain/otp"
-	"users/internal/domain/producer"
 	"users/internal/domain/repository"
 	"users/internal/domain/service"
 	userService "users/internal/infrastructure/service"
@@ -25,7 +25,7 @@ type UserUseCases struct {
 	logger      *slog.Logger
 	grpcConn    *grpc.ClientConn
 	storage     repository.UserStorage
-	publisher   producer.Publisher
+	publisher   broker.Publisher
 	otpCache    cache.Cache
 	userService service.UserService
 }
@@ -36,7 +36,7 @@ type changeEmailOTP struct {
 	Code   string    `json:"code"`
 }
 
-func NewUserUsecases(logger *slog.Logger, grpcConn *grpc.ClientConn, storage repository.UserStorage, publisher producer.Publisher, otpCache cache.Cache) *UserUseCases {
+func NewUserUsecases(logger *slog.Logger, grpcConn *grpc.ClientConn, storage repository.UserStorage, publisher broker.Publisher, otpCache cache.Cache) *UserUseCases {
 	return &UserUseCases{
 		logger:      logger,
 		grpcConn:    grpcConn,
@@ -61,7 +61,7 @@ func (s *UserUseCases) sendCode(ctx context.Context, email string, purpose otp.O
 	}
 
 	if s.publisher != nil {
-		go s.publisher.Publish(ctx, producer.GetOTPEventMessage(email, code, purpose))
+		go s.publisher.Publish(ctx, broker.GetOTPEventMessage(email, code, purpose))
 	}
 	return nil
 }
@@ -190,7 +190,7 @@ func (s *UserUseCases) RequestChangeEmail(ctx context.Context, id uuid.UUID, new
 	}
 
 	if s.publisher != nil {
-		go s.publisher.Publish(ctx, producer.GetOTPEventMessage(newEmail, code, otp.ChangeEmail))
+		go s.publisher.Publish(ctx, broker.GetOTPEventMessage(newEmail, code, otp.ChangeEmail))
 	}
 	return nil
 }
