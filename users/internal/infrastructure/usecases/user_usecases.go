@@ -3,22 +3,23 @@ package usecases
 import (
 	"context"
 	"encoding/json"
-	"errors"
-	"fmt"
 	"log/slog"
 	"time"
 	auth "users/api/proto"
 	"users/internal/domain/broker"
 	"users/internal/domain/cache"
 	domainerr "users/internal/domain/errors"
+	"users/internal/domain/events"
 	"users/internal/domain/models"
 	"users/internal/domain/otp"
+	"users/internal/domain/outbox"
 	"users/internal/domain/repository"
 	"users/internal/domain/service"
 	userService "users/internal/infrastructure/service"
 
 	"github.com/google/uuid"
 	"google.golang.org/grpc"
+	"google.golang.org/protobuf/encoding/protojson"
 )
 
 type UserUseCases struct {
@@ -164,10 +165,6 @@ func (s *UserUseCases) RequestCode(ctx context.Context, id uuid.UUID, email stri
 }
 
 func (s *UserUseCases) RequestChangeEmail(ctx context.Context, id uuid.UUID, newEmail string) error {
-	if _, err := s.storage.Read(ctx, id); err != nil {
-		return err
-	}
-
 	err := s.userService.CheckEmailAvailability(ctx, newEmail)
 	if err != nil {
 		return err
@@ -217,41 +214,25 @@ func (s *UserUseCases) ConfirmChangeEmail(ctx context.Context, id uuid.UUID, cod
 		return err
 	}
 
-	u, err := s.storage.Read(ctx, id)
-	if err != nil {
-		return err
-	}
-
-	client := auth.NewAuthClient(s.grpcConn)
-	changeResp, err := client.ChangeEmail(ctx, &auth.ChangeEmailRequest{
+	eventPayload, err := protojson.Marshal(&auth.ChangeEmailRequest{
 		Id:       id.String(),
 		NewEmail: newEmail,
 	})
 	if err != nil {
 		return err
 	}
-	if !changeResp.IsChanged {
-		return domainerr.ErrUserAlreadyExists
+
+	event := outbox.OutboxEvent{
+		ID:            uuid.New(),
+		AggregateType: "user",
+		AggregateID:   id.String(),
+		EventType:     string(events.EmailChanged),
+		Payload:       eventPayload,
+		Status:        outbox.StatusPending,
+	}
+	if err := s.storage.UpdateEmailWithOutbox(ctx, id, newEmail, event); err != nil {
+		return err
 	}
 
-	oldEmail := u.Email
-	u.Email = newEmail
-	if err := s.storage.Update(ctx, u); err != nil {
-		storageErr := fmt.Errorf("failed to update user email in storage: %w", err)
-		rollbackCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
-		defer cancel()
-
-		rollbackResp, rollbackErr := client.ChangeEmail(rollbackCtx, &auth.ChangeEmailRequest{
-			Id:       id.String(),
-			NewEmail: oldEmail,
-		})
-		if rollbackErr != nil {
-			return errors.Join(storageErr, fmt.Errorf("failed to roll back auth email: %w", rollbackErr))
-		}
-		if !rollbackResp.IsChanged {
-			return errors.Join(storageErr, errors.New("auth service rejected email rollback"))
-		}
-		return storageErr
-	}
 	return nil
 }

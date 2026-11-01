@@ -27,7 +27,7 @@ func (p *KafkaPublisher) Publish(ctx context.Context, payload any) error {
 	return p.writer.WriteMessages(ctx, message)
 }
 
-func NewKafkaProducer(brokers []string, topic string, l *slog.Logger) broker.Publisher {
+func NewKafkaPublisher(brokers []string, topic string, l *slog.Logger) broker.Publisher {
 	dialer := &kafka.Dialer{
 		Timeout:  10 * time.Second,
 		ClientID: "registration-service-client",

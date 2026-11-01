@@ -17,7 +17,9 @@ import (
 	"users/internal/config"
 	"users/internal/domain/broker"
 	"users/internal/domain/cache"
+	"users/internal/domain/events"
 	"users/internal/domain/outbox"
+	"users/internal/domain/outbox/sendstrategies"
 	"users/internal/domain/repository"
 	"users/internal/infrastructure/kafka"
 	pgoutbox "users/internal/infrastructure/pg_outbox"
@@ -64,9 +66,27 @@ func (s *Server) Start() error {
 
 	s.grpcConn = conn
 
-	s.appProducers.producer = kafka.NewKafkaProducer(s.config.Kafka.Brokers, s.config.Kafka.Topic, s.logger)
+	s.appProducers.producer = kafka.NewKafkaPublisher(s.config.Kafka.Brokers, s.config.Kafka.Topic, s.logger)
 
-	s.outbox = pgoutbox.NewPostgresOutbox(s.logger, s.appProducers.producer, s.storage, 1, 1*time.Second, 5)
+	changeEmailStrategy, err := sendstrategies.NewGrpcChangeEmailStrategy(s.grpcConn)
+	if err != nil {
+		return err
+	}
+	s.outbox = pgoutbox.NewPostgresOutbox(
+		s.logger,
+		s.storage,
+		5,
+		time.Second,
+		5,
+		map[events.Event]outbox.OutboxSendStrategy{
+			events.EmailChanged: changeEmailStrategy,
+		},
+	)
+	go func() {
+		if err := s.outbox.Run(context.Background()); err != nil && err != context.Canceled {
+			s.logger.Error("Outbox worker stopped unexpectedly", "err", err)
+		}
+	}()
 
 	service := usecases.NewUserUsecases(s.logger, s.grpcConn, s.storage, s.appProducers.producer, s.otpCache)
 
@@ -89,8 +109,6 @@ func (s *Server) Start() error {
 			s.logger.Error("HTTP server error", "error", err)
 		}
 	}()
-
-	go s.outbox.Run(context.Background())
 
 	return nil
 }

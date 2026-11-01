@@ -8,10 +8,12 @@ import (
 	"users/internal/config"
 	domainerr "users/internal/domain/errors"
 	"users/internal/domain/models"
+	"users/internal/domain/outbox"
 
 	"github.com/google/uuid"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 // Realizes users/internal/domain/repository UsersStorage interface
@@ -45,8 +47,9 @@ func (s *PostgresUserStorage) Open() error {
 
 	if err := s.db.AutoMigrate(
 		&User{},
+		&outbox.OutboxEvent{},
 	); err != nil {
-		return nil
+		return err
 	}
 
 	pool, _ := s.db.DB()
@@ -122,4 +125,91 @@ func (s *PostgresUserStorage) FindByEmail(ctx context.Context, email string) (*m
 		return nil, err
 	}
 	return ToDomain(&dbUser), nil
+}
+
+func (s *PostgresUserStorage) UpdateEmailWithOutbox(ctx context.Context, id uuid.UUID, email string, event outbox.OutboxEvent) error {
+	return s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		s.logger.Debug("Creating outbox event for email update", "user_id", id, "new_email", email, "event_type", event.EventType)
+
+		result := tx.Model(&User{}).Where("id = ?", id).Update("email", email)
+		if result.Error != nil {
+			s.logger.Error("Failed to update user email for outbox event", "err", result.Error, "user_id", id)
+			return fmt.Errorf("update user email: %w", result.Error)
+		}
+		if result.RowsAffected == 0 {
+			s.logger.Warn("Outbox email update skipped because user was not found", "user_id", id)
+			return domainerr.ErrUserNotFound
+		}
+
+		if err := tx.Create(&event).Error; err != nil {
+			s.logger.Error("Failed to insert outbox event", "err", err, "user_id", id, "event_type", event.EventType)
+			return fmt.Errorf("insert outbox event: %w", err)
+		}
+
+		s.logger.Info("Outbox event created", "event_id", event.ID, "user_id", id, "event_type", event.EventType, "aggregate_id", event.AggregateID)
+		return nil
+	})
+}
+
+func (s *PostgresUserStorage) ClaimOutboxBatch(ctx context.Context, limit int, lease time.Duration) ([]outbox.OutboxEvent, error) {
+	if limit <= 0 {
+		return nil, fmt.Errorf("outbox batch size must be positive")
+	}
+	if lease <= 0 {
+		return nil, fmt.Errorf("outbox claim lease must be positive")
+	}
+
+	var batch []outbox.OutboxEvent
+	result := s.db.WithContext(ctx).
+		Clauses(clause.Locking{Strength: "UPDATE", Options: "SKIP LOCKED"}).
+		Where("status = ?", outbox.StatusPending).
+		Order("id ASC").
+		Limit(limit).
+		Find(&batch)
+	if result.Error != nil {
+		return nil, fmt.Errorf("select outbox events: %w", result.Error)
+	}
+
+	for i := range batch {
+		batch[i].Attempts++
+		batch[i].Status = outbox.StatusProcessing
+
+		updateResult := s.db.WithContext(ctx).Model(&outbox.OutboxEvent{}).
+			Where("id = ?", batch[i].ID).
+			Updates(map[string]any{
+				"attempts": batch[i].Attempts,
+				"status":   outbox.StatusProcessing,
+			})
+		if updateResult.Error != nil {
+			return nil, fmt.Errorf("claim outbox event %s: %w", batch[i].ID, updateResult.Error)
+		}
+	}
+
+	return batch, nil
+}
+
+func (s *PostgresUserStorage) MarkOutboxDelivered(ctx context.Context, id uuid.UUID) error {
+	result := s.db.WithContext(ctx).Model(&outbox.OutboxEvent{}).
+		Where("id = ? AND status = ?", id, outbox.StatusProcessing).
+		Updates(map[string]any{"status": outbox.StatusDelivered})
+	if result.Error != nil {
+		return fmt.Errorf("mark outbox event %s delivered: %w", id, result.Error)
+	}
+	if result.RowsAffected == 0 {
+		return fmt.Errorf("outbox event %s is not processing", id)
+	}
+	return nil
+}
+
+func (s *PostgresUserStorage) RetryOutboxEvent(ctx context.Context, id uuid.UUID, _ time.Time, _ string) error {
+	result := s.db.WithContext(ctx).Model(&outbox.OutboxEvent{}).
+		Where("id = ? AND status = ?", id, outbox.StatusProcessing).
+		Updates(map[string]any{"status": outbox.StatusPending})
+	if result.Error != nil {
+		return fmt.Errorf("schedule retry for outbox event %s: %w", id, result.Error)
+	}
+	if result.RowsAffected == 0 {
+		return fmt.Errorf("outbox event %s is not processing", id)
+	}
+	return nil
 }

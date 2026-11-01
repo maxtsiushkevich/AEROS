@@ -1,6 +1,8 @@
 package outbox
 
-import "context"
+import (
+	"context"
+)
 
 type Outbox interface {
 	Run(ctx context.Context) error
