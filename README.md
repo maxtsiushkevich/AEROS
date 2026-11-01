@@ -5,7 +5,7 @@ AEROS (Airline Enterprise Resource Operations System) is a Go-based airline mana
 ## Overview
 
 - `auth/` — authentication, JWT issuance/revocation, RBAC HTTP API, and gRPC server
-- `users/` — user registration, profile, OTP-based activation, and Kafka event publishing
+- `users/` — user registration and profiles, OTP-based activation/email changes, Kafka events, and a PostgreSQL outbox
 - `flights/` — flight operations and per-flight cargo manifests/items
 - `pkg/` — shared HTTP helpers, JWT/middleware, and Casbin RBAC implementation
 - `rbac_config/` — Casbin model and local RBAC configuration
@@ -18,7 +18,7 @@ AEROS (Airline Enterprise Resource Operations System) is a Go-based airline mana
 |---|---|
 | `auth/` | Login, refresh/logout, password changes, RBAC administration, and gRPC auth server |
 | `flights/` | Flight CRUD/search/status operations and cargo manifest/item management |
-| `users/` | User registration/profile, OTP activation through Redis and Kafka, and auth gRPC client |
+| `users/` | User registration/profile, OTP activation and email changes, Kafka OTP events, and auth gRPC integration |
 | `pkg/` | Shared HTTP helpers, JWT tooling, auth middleware, and PostgreSQL-backed RBAC |
 | `rbac_config/` | Casbin model and RBAC configuration |
 
@@ -58,6 +58,7 @@ Each Go module is independent and uses the shared package through `replace pkg =
 | Technology | Purpose |
 |---|---|
 | Kafka | Asynchronous OTP event publishing by the users service |
+| PostgreSQL outbox | Reliable delivery of confirmed email changes from users to auth over gRPC |
 | Docker Compose | Local dev infrastructure |
 | PostgreSQL | Service persistence |
 | Goose | SQL migration management |
@@ -68,7 +69,7 @@ Each Go module is independent and uses the shared package through `replace pkg =
 - Docker and Docker Compose
 - PostgreSQL 16+
 - Redis 7+
-- Goose CLI for migrations
+- Goose CLI for auth, flights, and RBAC migrations
 
 
 ## Local environment
@@ -105,13 +106,15 @@ CREATE DATABASE flights;
 CREATE DATABASE casbin;
 ```
 
-Then apply migrations from the service directories:
+Apply the Goose migrations for auth, flights, and RBAC:
 
 ```bash
 goose -dir auth/migrations postgres "host=localhost port=5432 user=user password=123 dbname=auth sslmode=disable" up
 goose -dir flights/migrations postgres "host=localhost port=5432 user=user password=123 dbname=flights sslmode=disable" up
 goose -dir pkg/rbac/migrations postgres "host=localhost port=5432 user=user password=123 dbname=casbin sslmode=disable" up
 ```
+
+The users service uses GORM `AutoMigrate` to create its user and outbox tables when it starts; no Goose migration is provided for `users`.
 
 The config files are in:
 
@@ -242,10 +245,3 @@ cd ../flights && go test ./...
 cd ../users && go test ./...
 cd ../pkg && go test ./...
 ```
-
-## Current limitations
-
-- `flights` and `users` both default to `localhost:3000` in their sample configs, so they cannot run simultaneously without separate ports or a reverse proxy.
-- `users/config/config.yaml` currently points to the `flights` database and should be verified before enabling persistent user storage.
-- The users registration handler still uses example values and should be treated as a prototype rather than production-ready registration logic.
-- PostgreSQL is not included in the existing Docker Compose setup.
